@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Научные статьи — Lawart</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+  <section class="page-title">
+    <div class="wrap">
+      <span class="mono muted">Архив журнала</span>
+      <h1>Научные <i>статьи</i></h1>
+    </div>
+  </section>
+  <div class="wrap">
+    <div class="filters">
+      <input id="q" placeholder="Поиск по названию, автору, ключевым словам">
+      <select id="sort"><option value="new">Сначала новые</option><option value="old">Сначала старые</option><option value="pop">Самые читаемые</option></select>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="alist" id="list" style="margin-top:14px"></div>
+  </div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/key.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/app.js"></script>
+<script>
+(async () => {
+  await boot("articles");
+  let all = [], rubric = qs("rubric") || "";
+  const { data } = await sb.from("articles").select("id,title,authors,category,abstract,keywords,published_at,views").eq("status", "published").order("published_at", { ascending: false });
+  all = data || [];
+  const used = RUBRICS.filter(r => all.some(a => a.category === r));
+  $("#chips").innerHTML = [`<button class="chip ${rubric ? "" : "on"}" data-r="">Все рубрики</button>`, ...used.map(r => `<button class="chip ${r === rubric ? "on" : ""}" data-r="${esc(r)}">${esc(r)}</button>`)].join("");
+  $$("#chips .chip").forEach(c => c.onclick = () => { rubric = c.dataset.r; $$("#chips .chip").forEach(x => x.classList.toggle("on", x === c)); draw(); });
+  $("#q").oninput = draw; $("#sort").onchange = draw;
+  function draw() {
+    const q = $("#q").value.trim().toLowerCase();
+    let list = all.filter(a => (!rubric || a.category === rubric) && (!q || [a.title, a.authors, a.keywords, a.abstract].join(" ").toLowerCase().includes(q)));
+    const s = $("#sort").value;
+    if (s === "old") list = [...list].reverse();
+    if (s === "pop") list = [...list].sort((a, b) => b.views - a.views);
+    $("#list").innerHTML = list.length ? list.map((a, i) => `<a class="arow" href="article.html?id=${a.id}">
+        <div class="num">№${String(a.id).padStart(3, "0")}</div>
+        <div><span class="mono" style="color:var(--oxblood)">${esc(a.category)}</span><h3>${esc(a.title)}</h3><div class="auth">${esc(a.authors)}</div><div class="abs">${esc(a.abstract)}</div></div>
+        <div class="side mono">${fmtDate(a.published_at)}<br>${a.views} просм.<br><span style="color:var(--ink)">PDF ↓</span></div></a>`).join("")
+      : `<div class="empty-state"><b>${all.length ? "Ничего не найдено" : "Архив пока пуст"}</b>${all.length ? "Попробуйте другой запрос или рубрику." : "Первые статьи появятся после проверки редакцией."}</div>`;
+  }
+  draw();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Авторам — требования к статьям — Lawart</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+  <section class="page-title"><div class="wrap"><span class="mono muted">Для авторов</span><h1>Требования <i>к статьям</i></h1></div></section>
+  <div class="wrap" style="padding:40px 24px 80px">
+    <div class="steps reveal" style="margin-bottom:40px">
+      <div class="step"><div class="n">I</div><h4>Тематика</h4><p>Научные статьи по любым отраслям права, анализ законодательства и судебной практики Узбекистана и зарубежных стран.</p></div>
+      <div class="step"><div class="n">II</div><h4>Языки</h4><p>Русский, узбекский или английский. Аннотация и ключевые слова на языке статьи.</p></div>
+      <div class="step"><div class="n">III</div><h4>Объем</h4><p>Рекомендуемый объем от 5 до 20 страниц, шрифт Times New Roman 14, интервал 1,5.</p></div>
+      <div class="step"><div class="n">IV</div><h4>Файл</h4><p>Готовый PDF до 20 МБ. На первой странице название, ФИО авторов, степень и организация.</p></div>
+    </div>
+    <div class="news-cols">
+      <div class="panel reveal">
+        <h2>Структура статьи</h2>
+        <ol style="line-height:1.9;padding-left:20px">
+          <li>Название статьи.</li>
+          <li>Сведения об авторах: ФИО, ученая степень, должность, место работы или учебы.</li>
+          <li>Аннотация на 150–300 слов и 5–8 ключевых слов.</li>
+          <li>Введение с актуальностью и целью исследования.</li>
+          <li>Основная часть: анализ норм, практики, позиции ученых.</li>
+          <li>Выводы и предложения.</li>
+          <li>Список использованной литературы. Ссылки на нормативные акты лучше давать на lex.uz.</li>
+        </ol>
+      </div>
+      <div class="panel reveal">
+        <h2>Как проходит проверка</h2>
+        <p>Редакция проверяет соответствие тематике, научную новизну, оформление и оригинальность текста.</p>
+        <p>Если появятся вопросы, мы напишем в чат по статье. Вы увидите уведомление в колокольчике в кабинете.</p>
+        <p>После одобрения статья публикуется в открытом архиве, а у нее появляется постоянная ссылка для цитирования.</p>
+        <a class="btn red" href="auth.html?mode=signup&next=cabinet.html%23new">Подать статью</a>
+      </div>
+    </div>
+  </div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/key.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/app.js"></script>
+<script>(async () => { await boot("authors"); reveal(); })();</script>
+</body>
+</html>

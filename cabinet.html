@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Кабинет автора — Lawart</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="wrap dash">
+  <aside class="side-nav">
+    <div class="me"><span class="mono muted">Кабинет автора</span><b id="meName"></b><span class="muted" id="meOrg" style="font-size:.85rem"></span></div>
+    <button data-v="list" class="on">Мои статьи <span class="cnt hidden" id="cntUnread"></span></button>
+    <button data-v="new">+ Подать статью</button>
+    <button data-v="profile">Профиль</button>
+    <button data-v="password">Пароль</button>
+    <button id="logout">Выйти</button>
+  </aside>
+  <section id="view"></section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/key.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/app.js"></script>
+<script>
+(async () => {
+  if (!(await requireAuth())) return;
+  await boot("");
+  if (ME.profile?.is_admin && !qs("as")) { /* админ тоже может подавать, но по умолчанию идет в админку */ }
+  $("#meName").textContent = ME.profile?.full_name || ME.user.email;
+  $("#meOrg").textContent = [ME.profile?.degree, ME.profile?.organization].filter(Boolean).join(", ");
+  $("#logout").onclick = async () => { await sb.auth.signOut(); };
+  let stopChat = null;
+  $$(".side-nav [data-v]").forEach(b => b.onclick = () => go(b.dataset.v));
+
+  function nav(v) { $$(".side-nav [data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === v)); }
+  function go(v, id) {
+    if (stopChat) { stopChat(); stopChat = null; }
+    nav(v === "detail" ? "list" : v);
+    history.replaceState(null, "", "cabinet.html" + (id ? "?a=" + id : "") + (v !== "list" && v !== "detail" ? "#" + v : ""));
+    ({ list, new: form, profile, password, detail })[v](id);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function list() {
+    $("#view").innerHTML = `<div class="panel"><h2>Мои статьи</h2><p class="muted">Нажмите на статью, чтобы увидеть статус, замечания и переписку с редакцией.</p><div class="sub-list" id="subs">Загрузка…</div></div>`;
+    const { data } = await sb.from("articles").select("id,title,category,status,created_at,updated_at").eq("author_id", ME.user.id).order("created_at", { ascending: false });
+    const { data: notif } = await sb.from("notifications").select("link").eq("is_read", false);
+    const unreadFor = new Set((notif || []).map(n => n.link));
+    $("#subs").innerHTML = data?.length ? data.map(a => `<div class="sub" data-id="${a.id}">
+        <div><h4>${esc(a.title)} ${unreadFor.has("cabinet.html?a=" + a.id) ? `<span class="badge b-revision">новое</span>` : ""}</h4><span class="muted" style="font-size:.86rem">${esc(a.category)} · подана ${fmtDate(a.created_at)}</span></div>
+        ${badge(a.status)}</div>`).join("")
+      : `<div class="empty-state"><b>Статей пока нет</b><button class="btn red" onclick="document.querySelector('[data-v=new]').click()">Подать первую статью</button></div>`;
+    $$("#subs .sub").forEach(s => s.onclick = () => go("detail", s.dataset.id));
+  }
+
+  function rubricOptions(sel) { return RUBRICS.map(r => `<option ${r === sel ? "selected" : ""}>${esc(r)}</option>`).join(""); }
+
+  function form() {
+    const p = ME.profile || {};
+    $("#view").innerHTML = `<div class="panel"><h2>Подать статью</h2><p class="muted">Статья уйдет в редакцию на проверку. Если появятся вопросы, мы напишем вам в чат, а вы получите уведомление.</p>
+      <form id="nf">
+        <label>Название статьи</label><input name="title" required maxlength="300">
+        <label>Авторы <small>(ФИО, степень, организация; соавторов через точку с запятой)</small></label>
+        <input name="authors" required value="${esc([p.full_name, p.degree, p.organization].filter(Boolean).join(", "))}">
+        <div class="row2">
+          <div><label>Рубрика</label><select name="category" required>${rubricOptions()}</select></div>
+          <div><label>Язык статьи</label><select name="lang"><option value="ru">Русский</option><option value="uz">Узбекский</option><option value="en">Английский</option></select></div>
+        </div>
+        <label>Аннотация <small>(150–300 слов)</small></label><textarea name="abstract" required></textarea>
+        <label>Ключевые слова <small>(через запятую)</small></label><input name="keywords" placeholder="коррупция, комплаенс, спортивное право">
+        <label>Файл статьи PDF <small>(до 20 МБ)</small></label>
+        <div class="dropzone" id="dz"><b>Перетащите PDF сюда</b><span class="muted">или нажмите, чтобы выбрать файл</span><input type="file" id="pdf" accept="application/pdf,.pdf" class="hidden"></div>
+        <div id="fileName" class="ok"></div>
+        <label style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" required style="width:auto;margin-top:4px"> Подтверждаю, что статья является моей самостоятельной работой и не нарушает чужих прав</label>
+        <div id="nmsg"></div>
+        <button class="btn red" style="margin-top:18px" id="send">Отправить в редакцию</button>
+      </form></div>`;
+    const dz = $("#dz"), inp = $("#pdf");
+    dz.onclick = () => inp.click();
+    dz.ondragover = e => { e.preventDefault(); dz.classList.add("over"); };
+    dz.ondragleave = () => dz.classList.remove("over");
+    dz.ondrop = e => { e.preventDefault(); dz.classList.remove("over"); inp.files = e.dataTransfer.files; inp.onchange(); };
+    inp.onchange = () => { $("#fileName").textContent = inp.files[0] ? "Файл: " + inp.files[0].name : ""; };
+    $("#nf").onsubmit = async e => {
+      e.preventDefault();
+      const fd = Object.fromEntries(new FormData(e.target));
+      const file = inp.files[0];
+      if (!file) { $("#nmsg").innerHTML = `<div class="err">Прикрепите файл статьи в PDF</div>`; return; }
+      const btn = $("#send"); btn.disabled = true; btn.textContent = "Загружаю…";
+      try {
+        const pdf_path = await uploadPaper(file, ME.user.id);
+        const { data, error } = await sb.from("articles").insert({ author_id: ME.user.id, title: fd.title, authors: fd.authors, category: fd.category, lang: fd.lang, abstract: fd.abstract, keywords: fd.keywords, pdf_path }).select("id").single();
+        if (error) throw error;
+        toast("Статья отправлена в редакцию");
+        go("detail", data.id);
+      } catch (err) { $("#nmsg").innerHTML = `<div class="err">${esc(err.message)}</div>`; btn.disabled = false; btn.textContent = "Отправить в редакцию"; }
+    };
+  }
+
+  async function detail(id) {
+    const { data: a } = await sb.from("articles").select("*").eq("id", id).maybeSingle();
+    if (!a) return list();
+    readNotifFor("cabinet.html?a=" + id);
+    const canEdit = ["pending", "revision"].includes(a.status);
+    const url = await signedUrl("papers", a.pdf_path);
+    const hint = {
+      pending: "Статья у редакции на проверке. Если появятся вопросы, они придут в чат ниже.",
+      revision: "Редакция просит внести правки. Загрузите исправленный PDF и нажмите «Отправить повторно».",
+      published: "Статья опубликована и доступна всем в архиве журнала.",
+      rejected: "Редакция отклонила статью. Причину можно уточнить в чате."
+    }[a.status];
+    $("#view").innerHTML = `<div class="panel">
+      <button class="back" id="back">← Все мои статьи</button>
+      <div class="detail-head"><h2 style="max-width:640px">${esc(a.title)}</h2>${badge(a.status)}</div>
+      <p class="muted">${hint}</p>
+      ${a.admin_note ? `<div class="note"><b>Комментарий редакции:</b><br>${esc(a.admin_note)}</div>` : ""}
+      <div class="meta-grid"><div><small>Рубрика</small>${esc(a.category)}</div><div><small>Подана</small>${fmtDate(a.created_at)}</div><div><small>${a.published_at ? "Опубликована" : "Обновлена"}</small>${fmtDate(a.published_at || a.updated_at)}</div></div>
+      <div class="actions">
+        ${url ? `<a class="btn ghost sm" href="${url}" target="_blank" rel="noopener">Открыть мой PDF</a>` : ""}
+        ${a.status === "published" ? `<a class="btn green sm" href="article.html?id=${a.id}">Страница статьи</a>` : ""}
+        ${canEdit ? `<button class="btn sm" id="editBtn">Изменить или заменить файл</button>` : ""}
+      </div>
+      <div id="editBox"></div>
+      <div id="chatBox"></div></div>`;
+    $("#back").onclick = () => go("list");
+    stopChat = mountChat($("#chatBox"), a);
+    if (canEdit) $("#editBtn").onclick = () => {
+      $("#editBox").innerHTML = `<form id="ef" style="margin-top:18px;border-top:1px solid var(--line);padding-top:6px">
+        <label>Название</label><input name="title" value="${esc(a.title)}" required>
+        <label>Авторы</label><input name="authors" value="${esc(a.authors)}" required>
+        <label>Рубрика</label><select name="category">${rubricOptions(a.category)}</select>
+        <label>Аннотация</label><textarea name="abstract">${esc(a.abstract)}</textarea>
+        <label>Ключевые слова</label><input name="keywords" value="${esc(a.keywords)}">
+        <label>Новый PDF <small>(если нужно заменить)</small></label><input type="file" id="newPdf" accept="application/pdf,.pdf">
+        <button class="btn red" style="margin-top:16px">${a.status === "revision" ? "Отправить повторно" : "Сохранить"}</button></form>`;
+      $("#ef").onsubmit = async e => {
+        e.preventDefault();
+        const fd = Object.fromEntries(new FormData(e.target));
+        const upd = { title: fd.title, authors: fd.authors, category: fd.category, abstract: fd.abstract, keywords: fd.keywords, status: "pending" };
+        try {
+          const f = $("#newPdf").files[0];
+          if (f) upd.pdf_path = await uploadPaper(f, ME.user.id);
+          const { error } = await sb.from("articles").update(upd).eq("id", a.id);
+          if (error) throw error;
+          toast(a.status === "revision" ? "Отправлено в редакцию повторно" : "Сохранено");
+          detail(a.id);
+        } catch (err) { toast(err.message); }
+      };
+    };
+  }
+
+  function profile() {
+    const p = ME.profile || {};
+    $("#view").innerHTML = `<div class="panel"><h2>Профиль</h2><form id="pf">
+      <label>ФИО</label><input name="full_name" value="${esc(p.full_name)}" required>
+      <div class="row2"><div><label>Ученая степень</label><input name="degree" value="${esc(p.degree)}"></div><div><label>Должность</label><input name="position" value="${esc(p.position)}"></div></div>
+      <label>Место работы или учебы</label><input name="organization" value="${esc(p.organization)}">
+      <div class="row2"><div><label>ORCID</label><input name="orcid" value="${esc(p.orcid)}" placeholder="0000-0000-0000-0000"></div><div><label>Телефон</label><input name="phone" value="${esc(p.phone)}"></div></div>
+      <label>Email</label><input value="${esc(ME.user.email)}" disabled>
+      <button class="btn red" style="margin-top:18px">Сохранить</button></form></div>`;
+    $("#pf").onsubmit = async e => {
+      e.preventDefault();
+      const fd = Object.fromEntries(new FormData(e.target));
+      const { error } = await sb.from("profiles").update(fd).eq("id", ME.user.id);
+      if (error) return toast(error.message);
+      await loadMe(); $("#meName").textContent = ME.profile.full_name; toast("Профиль сохранен");
+    };
+  }
+
+  function password() {
+    $("#view").innerHTML = `<div class="panel"><h2>Смена пароля</h2><form id="pw" style="max-width:420px">
+      <label>Новый пароль</label><input type="password" name="p1" minlength="6" required>
+      <label>Повторите пароль</label><input type="password" name="p2" minlength="6" required>
+      <button class="btn red" style="margin-top:18px">Сменить пароль</button></form></div>`;
+    $("#pw").onsubmit = async e => {
+      e.preventDefault();
+      const { p1, p2 } = Object.fromEntries(new FormData(e.target));
+      if (p1 !== p2) return toast("Пароли не совпадают");
+      const { error } = await sb.auth.updateUser({ password: p1 });
+      toast(error ? error.message : "Пароль изменен");
+      if (!error) e.target.reset();
+    };
+  }
+
+  const startId = qs("a"), hash = location.hash.slice(1);
+  if (startId) go("detail", startId);
+  else if (["new", "profile", "password"].includes(hash)) go(hash);
+  else go("list");
+  window.addEventListener("hashchange", () => { const h = location.hash.slice(1); if (["new", "profile", "password"].includes(h)) go(h); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Редакция — Lawart</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="wrap dash">
+  <aside class="side-nav">
+    <div class="me"><span class="mono muted">Редакция</span><b id="meName"></b></div>
+    <button data-v="queue" class="on">Заявки <span class="cnt hidden" id="cntQ"></span></button>
+    <button data-v="published">Опубликованные</button>
+    <button data-v="rejected">Отклоненные</button>
+    <button data-v="upload">+ Статья в архив</button>
+    <button data-v="news">Новости и интересное</button>
+    <button data-v="authors">Авторы</button>
+    <button id="logout">Выйти</button>
+  </aside>
+  <section id="view"></section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/key.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/app.js"></script>
+<script>
+(async () => {
+  if (!(await requireAuth())) return;
+  await boot("");
+  if (!ME.profile?.is_admin) { $("main").innerHTML = `<div class="empty-state" style="grid-column:1/-1"><b>Нет доступа</b>Этот раздел только для редакции. <a href="cabinet.html">В кабинет автора</a></div>`; return; }
+  $("#meName").textContent = ME.profile.full_name || ME.user.email;
+  $("#logout").onclick = async () => { await sb.auth.signOut(); };
+  let stopChat = null;
+  $$(".side-nav [data-v]").forEach(b => b.onclick = () => go(b.dataset.v));
+  const V = { queue, published: () => listBy(["published"], "Опубликованные"), rejected: () => listBy(["rejected"], "Отклоненные"), upload, news, authors, detail };
+  function go(v, id) {
+    if (stopChat) { stopChat(); stopChat = null; }
+    $$(".side-nav [data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === (v === "detail" ? "queue" : v)));
+    history.replaceState(null, "", "admin.html" + (id ? "?a=" + id : (v !== "queue" ? "#" + v : "")));
+    V[v](id); window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  async function refreshCount() {
+    const { count } = await sb.from("articles").select("id", { count: "exact", head: true }).eq("status", "pending");
+    $("#cntQ").textContent = count; $("#cntQ").classList.toggle("hidden", !count);
+  }
+  refreshCount(); setInterval(refreshCount, 20000);
+
+  function rows(data, empty) {
+    return data?.length ? data.map(a => `<div class="sub" data-id="${a.id}"><div><h4>${esc(a.title)}</h4>
+      <span class="muted" style="font-size:.86rem">${esc(a.authors)} · ${esc(a.category)} · ${fmtDate(a.updated_at || a.created_at)}</span></div>${badge(a.status)}</div>`).join("")
+      : `<div class="empty-state"><b>${empty}</b></div>`;
+  }
+  function bindRows() { $$(".sub[data-id]").forEach(s => s.onclick = () => go("detail", s.dataset.id)); }
+
+  async function queue() {
+    const { data: st } = await sb.rpc("journal_stats");
+    const { data } = await sb.from("articles").select("id,title,authors,category,status,created_at,updated_at").in("status", ["pending", "revision"]).order("updated_at", { ascending: false });
+    const { count: users } = await sb.from("profiles").select("id", { count: "exact", head: true });
+    const pend = (data || []).filter(a => a.status === "pending"), rev = (data || []).filter(a => a.status === "revision");
+    $("#view").innerHTML = `<div class="kpis">
+        <div class="kpi"><b>${pend.length}</b><small>ждут проверки</small></div>
+        <div class="kpi"><b>${rev.length}</b><small>у авторов на правках</small></div>
+        <div class="kpi"><b>${st?.articles || 0}</b><small>опубликовано</small></div>
+        <div class="kpi"><b>${users || 0}</b><small>зарегистрировано</small></div></div>
+      <div class="panel"><h2>Ждут проверки</h2><div class="sub-list">${rows(pend, "Новых заявок нет")}</div></div>
+      <div class="panel"><h2>На доработке у авторов</h2><div class="sub-list">${rows(rev, "Пусто")}</div></div>`;
+    bindRows();
+  }
+  async function listBy(statuses, title) {
+    const { data } = await sb.from("articles").select("id,title,authors,category,status,created_at,updated_at").in("status", statuses).order("updated_at", { ascending: false });
+    $("#view").innerHTML = `<div class="panel"><h2>${title}</h2><div class="sub-list">${rows(data, "Пусто")}</div></div>`;
+    bindRows();
+  }
+
+  async function detail(id) {
+    const { data: a } = await sb.from("articles").select("*").eq("id", id).maybeSingle();
+    if (!a) return queue();
+    readNotifFor("admin.html?a=" + id);
+    const { data: au } = a.author_id ? await sb.from("profiles").select("*").eq("id", a.author_id).maybeSingle() : { data: null };
+    const url = await signedUrl("papers", a.pdf_path, 3600 * 3);
+    $("#view").innerHTML = `<div class="panel">
+      <button class="back" id="back">← К заявкам</button>
+      <div class="detail-head"><div><span class="mono" style="color:var(--oxblood)">${esc(a.category)} · №${String(a.id).padStart(3, "0")}</span><h2 style="max-width:640px;margin-top:6px">${esc(a.title)}</h2></div>${badge(a.status)}</div>
+      <p><b>${esc(a.authors)}</b></p>
+      <div class="meta-grid">
+        <div><small>Аккаунт автора</small>${esc(au?.full_name || "—")}</div>
+        <div><small>Организация</small>${esc(au?.organization || "—")}</div>
+        <div><small>Телефон</small>${esc(au?.phone || "—")}</div>
+        <div><small>Подана</small>${fmtDate(a.created_at)}</div>
+        <div><small>Язык</small>${esc(a.lang)}</div>
+        <div><small>Ключевые слова</small>${esc(a.keywords || "—")}</div></div>
+      <p style="white-space:pre-wrap">${esc(a.abstract)}</p>
+      ${url ? `<div class="pdfbox"><iframe src="${url}#view=FitH" style="height:70vh"></iframe></div><a class="btn ghost sm" style="margin-top:10px" href="${url}" target="_blank" rel="noopener">Открыть PDF в новой вкладке</a>` : `<p class="muted">Файл не прикреплен</p>`}
+      <label style="margin-top:22px">Комментарий для автора <small>(виден автору в кабинете)</small></label>
+      <textarea id="note" style="min-height:80px">${esc(a.admin_note)}</textarea>
+      <div class="actions">
+        ${a.status !== "published" ? `<button class="btn green" data-s="published">Опубликовать</button>` : `<a class="btn green" href="article.html?id=${a.id}">Открыть на сайте</a>`}
+        ${a.status !== "revision" ? `<button class="btn amber" data-s="revision">Вернуть на доработку</button>` : ""}
+        ${a.status !== "rejected" ? `<button class="btn ghost" data-s="rejected">Отклонить</button>` : ""}
+        ${a.status === "published" || a.status === "rejected" ? `<button class="btn ghost" data-s="pending">Вернуть в проверку</button>` : ""}
+        <button class="btn ghost" id="del" style="margin-left:auto;color:var(--oxblood);border-color:var(--oxblood)">Удалить</button>
+      </div>
+      <div id="chatBox"></div></div>`;
+    $("#back").onclick = () => go("queue");
+    $$("[data-s]").forEach(b => b.onclick = async () => {
+      const s = b.dataset.s;
+      const word = { published: "опубликовать статью", revision: "вернуть статью автору на доработку", rejected: "отклонить статью", pending: "вернуть статью в проверку" }[s];
+      if (!(await confirmBox(`Точно ${word}?`, s === "published" ? "Статья сразу появится в открытом архиве, автор получит уведомление." : "Автор получит уведомление."))) return;
+      const { error } = await sb.from("articles").update({ status: s, admin_note: $("#note").value }).eq("id", a.id);
+      if (error) return toast(error.message);
+      toast({ published: "Статья опубликована", revision: "Отправлено автору на доработку", rejected: "Статья отклонена", pending: "Статья снова на проверке" }[s]);
+      refreshCount(); detail(a.id);
+    });
+    $("#del").onclick = async () => {
+      if (!(await confirmBox("Удалить статью навсегда?", "Статья, ее файл и переписка будут удалены без возможности восстановления."))) return;
+      if (a.pdf_path) await sb.storage.from("papers").remove([a.pdf_path]);
+      const { error } = await sb.from("articles").delete().eq("id", a.id);
+      if (error) return toast(error.message);
+      toast("Статья удалена"); go("queue");
+    };
+    if (a.author_id && a.author_id !== ME.user.id) stopChat = mountChat($("#chatBox"), a);
+  }
+
+  function confirmBox(title, text) {
+    return new Promise(res => {
+      const m = document.createElement("div"); m.className = "modal-bg";
+      m.innerHTML = `<div class="modal" style="max-width:440px"><h3>${esc(title)}</h3><p class="muted">${esc(text)}</p><div class="actions"><button class="btn red" id="cy">Да</button><button class="btn ghost" id="cn">Отмена</button></div></div>`;
+      document.body.appendChild(m);
+      $("#cy", m).onclick = () => { m.remove(); res(true); };
+      $("#cn", m).onclick = () => { m.remove(); res(false); };
+    });
+  }
+
+  function upload() {
+    $("#view").innerHTML = `<div class="panel"><h2>Статья в архив</h2><p class="muted">Добавьте готовую статью сразу в открытый архив, без проверки.</p><form id="uf">
+      <label>Название</label><input name="title" required>
+      <label>Авторы</label><input name="authors" required placeholder="Иванов И.И., к.ю.н., ТГЮУ">
+      <div class="row2"><div><label>Рубрика</label><select name="category">${RUBRICS.map(r => `<option>${esc(r)}</option>`).join("")}</select></div>
+      <div><label>Язык</label><select name="lang"><option value="ru">Русский</option><option value="uz">Узбекский</option><option value="en">Английский</option></select></div></div>
+      <label>Аннотация</label><textarea name="abstract"></textarea>
+      <label>Ключевые слова</label><input name="keywords">
+      <label>Дата публикации</label><input type="date" name="date" value="${new Date().toISOString().slice(0, 10)}">
+      <label>PDF</label><input type="file" id="upPdf" accept="application/pdf,.pdf" required>
+      <button class="btn red" style="margin-top:18px" id="upBtn">Опубликовать в архиве</button></form></div>`;
+    $("#uf").onsubmit = async e => {
+      e.preventDefault();
+      const fd = Object.fromEntries(new FormData(e.target));
+      const btn = $("#upBtn"); btn.disabled = true;
+      try {
+        const pdf_path = await uploadPaper($("#upPdf").files[0], ME.user.id);
+        const { data, error } = await sb.from("articles").insert({ author_id: ME.user.id, title: fd.title, authors: fd.authors, category: fd.category, lang: fd.lang, abstract: fd.abstract, keywords: fd.keywords, pdf_path, status: "published", published_at: new Date(fd.date).toISOString() }).select("id").single();
+        if (error) throw error;
+        toast("Статья добавлена в архив"); location.href = "article.html?id=" + data.id;
+      } catch (err) { toast(err.message); btn.disabled = false; }
+    };
+  }
+
+  async function news() {
+    const { data } = await sb.from("news").select("*").order("created_at", { ascending: false });
+    $("#view").innerHTML = `<div class="panel"><div class="detail-head"><h2>Новости и интересное</h2><button class="btn red sm" id="addN">+ Добавить</button></div>
+      <table class="t" style="margin-top:14px"><tr><th>Заголовок</th><th>Раздел</th><th>Дата</th><th></th></tr>
+      ${(data || []).map(n => `<tr><td><a href="news-item.html?id=${n.id}">${esc(n.title)}</a>${n.published ? "" : " <span class='badge b-pending'>черновик</span>"}</td><td>${n.kind === "news" ? "Новости" : "Интересное"}</td><td>${fmtDate(n.created_at)}</td>
+        <td style="white-space:nowrap"><button class="btn ghost sm" data-e="${n.id}">Изменить</button> <button class="btn ghost sm" data-d="${n.id}">Удалить</button></td></tr>`).join("") || `<tr><td colspan="4" class="muted">Пока пусто</td></tr>`}</table></div>`;
+    $("#addN").onclick = () => editNews({});
+    $$("[data-e]").forEach(b => b.onclick = () => editNews(data.find(n => n.id == b.dataset.e)));
+    $$("[data-d]").forEach(b => b.onclick = async () => { if (!(await confirmBox("Удалить запись?", "Действие нельзя отменить."))) return; await sb.from("news").delete().eq("id", b.dataset.d); news(); });
+  }
+  function editNews(n) {
+    const m = document.createElement("div"); m.className = "modal-bg";
+    m.innerHTML = `<div class="modal"><h3>${n.id ? "Изменить запись" : "Новая запись"}</h3><form id="nf">
+      <div class="row2"><div><label>Раздел</label><select name="kind"><option value="news" ${n.kind !== "interesting" ? "selected" : ""}>Новости</option><option value="interesting" ${n.kind === "interesting" ? "selected" : ""}>Интересное</option></select></div>
+      <div><label>Статус</label><select name="published"><option value="true">Опубликовано</option><option value="false" ${n.published === false ? "selected" : ""}>Черновик</option></select></div></div>
+      <label>Заголовок</label><input name="title" required value="${esc(n.title)}">
+      <label>Кратко <small>(1–2 предложения для карточки)</small></label><input name="summary" value="${esc(n.summary)}">
+      <label>Текст</label><textarea name="body" style="min-height:200px">${esc(n.body)}</textarea>
+      <label>Обложка <small>(картинка, по желанию)</small></label><input type="file" id="cov" accept="image/*">
+      ${n.cover_url ? `<p class="muted" style="font-size:.85rem">Сейчас есть обложка. Новая заменит ее.</p>` : ""}
+      <div class="actions"><button class="btn red">Сохранить</button><button type="button" class="btn ghost" id="cx">Отмена</button></div></form></div>`;
+    document.body.appendChild(m);
+    $("#cx", m).onclick = () => m.remove();
+    $("#nf", m).onsubmit = async e => {
+      e.preventDefault();
+      const fd = Object.fromEntries(new FormData(e.target));
+      const row = { kind: fd.kind, published: fd.published === "true", title: fd.title, summary: fd.summary, body: fd.body };
+      const f = $("#cov", m).files[0];
+      if (f) {
+        const path = safeName(f.name);
+        const { error } = await sb.storage.from("covers").upload(path, f, { contentType: f.type });
+        if (error) return toast(error.message);
+        row.cover_url = sb.storage.from("covers").getPublicUrl(path).data.publicUrl;
+      }
+      const { error } = n.id ? await sb.from("news").update(row).eq("id", n.id) : await sb.from("news").insert(row);
+      if (error) return toast(error.message);
+      m.remove(); toast("Сохранено"); news();
+    };
+  }
+
+  async function authors() {
+    const { data: ps } = await sb.from("profiles").select("*").order("created_at", { ascending: false });
+    const { data: arts } = await sb.from("articles").select("author_id,status");
+    const cnt = {}; (arts || []).forEach(a => { cnt[a.author_id] = cnt[a.author_id] || { all: 0, pub: 0 }; cnt[a.author_id].all++; if (a.status === "published") cnt[a.author_id].pub++; });
+    $("#view").innerHTML = `<div class="panel"><h2>Авторы</h2><p class="muted">Всего: ${ps?.length || 0}</p>
+      <table class="t"><tr><th>ФИО</th><th>Степень, должность</th><th>Организация</th><th>Телефон</th><th>Статей</th><th>Регистрация</th></tr>
+      ${(ps || []).map(p => `<tr><td><b>${esc(p.full_name || "—")}</b>${p.is_admin ? " <span class='badge b-published'>редакция</span>" : ""}</td><td>${esc([p.degree, p.position].filter(Boolean).join(", "))}</td><td>${esc(p.organization)}</td><td>${esc(p.phone)}</td><td>${cnt[p.id]?.all || 0} / ${cnt[p.id]?.pub || 0} опубл.</td><td>${fmtDate(p.created_at)}</td></tr>`).join("")}</table></div>`;
+  }
+
+  const startId = qs("a"), h = location.hash.slice(1);
+  if (startId) go("detail", startId); else if (V[h] && h !== "detail") go(h); else go("queue");
+})();
+</script>
+</body>
+</html>

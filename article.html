@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Статья — Lawart</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="wrap">
+  <div id="art"><div class="empty-state">Загрузка…</div></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/key.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/app.js"></script>
+<script>
+(async () => {
+  await boot("articles");
+  const id = +qs("id");
+  const { data: a } = await sb.from("articles").select("*").eq("id", id).maybeSingle();
+  if (!a) { $("#art").innerHTML = `<div class="empty-state"><b>Статья не найдена</b><a href="articles.html">Вернуться в архив</a></div>`; return; }
+  document.title = a.title + " — Lawart";
+  if (a.status === "published") sb.rpc("add_view", { a_id: id });
+  const url = await signedUrl("papers", a.pdf_path, 3600 * 3);
+  const year = new Date(a.published_at || a.created_at).getFullYear();
+  const link = (CFG.SITE_URL || location.origin) + "/article.html?id=" + a.id;
+  const cite = `${a.authors}. ${a.title} // Lawart: электронный научный журнал. ${year}. URL: ${link}`;
+  $("#art").innerHTML = `<div class="art">
+    <article>
+      ${a.status !== "published" ? `<div class="note">Статья еще не опубликована. Ее видите только вы и редакция. Статус: ${badge(a.status)}</div>` : ""}
+      <a href="articles.html?rubric=${encodeURIComponent(a.category)}" class="mono" style="color:var(--oxblood);text-decoration:none">${esc(a.category)}</a>
+      <h1>${esc(a.title)}</h1>
+      <div class="auth">${esc(a.authors)}</div>
+      ${a.abstract ? `<div class="abs">${esc(a.abstract)}</div>` : ""}
+      ${a.keywords ? `<div class="kw">${a.keywords.split(/[,;]/).map(k => k.trim()).filter(Boolean).map(k => `<span>${esc(k)}</span>`).join("")}</div>` : ""}
+      ${url ? `<div class="pdfbox"><iframe src="${url}#view=FitH" title="Текст статьи"></iframe></div>` : `<p class="muted">Файл статьи недоступен.</p>`}
+    </article>
+    <aside>
+      <div class="aside-card">
+        ${url ? `<a class="btn red" style="width:100%" href="${url}" target="_blank" rel="noopener">Скачать PDF</a>` : ""}
+      </div>
+      <div class="aside-card"><h4>О публикации</h4><dl>
+        <dt>Номер</dt><dd>№${String(a.id).padStart(3, "0")}</dd>
+        <dt>Дата</dt><dd>${fmtDate(a.published_at || a.created_at)}</dd>
+        <dt>Рубрика</dt><dd>${esc(a.category)}</dd>
+        <dt>Язык</dt><dd>${{ ru: "Русский", uz: "Узбекский", en: "Английский" }[a.lang] || a.lang}</dd>
+        <dt>Прочтений</dt><dd>${a.views}</dd></dl></div>
+      <div class="aside-card"><h4>Как цитировать</h4><div class="cite" id="cite">${esc(cite)}</div>
+        <button class="btn ghost sm" id="copyCite">Скопировать</button></div>
+      <div class="aside-card"><h4>Поделиться</h4>
+        <a class="btn ghost sm" target="_blank" rel="noopener" href="https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(a.title)}">Telegram</a>
+        <button class="btn ghost sm" id="copyLink">Ссылка</button></div>
+    </aside></div>`;
+  $("#copyCite").onclick = () => { navigator.clipboard.writeText(cite); toast("Ссылка для цитирования скопирована"); };
+  $("#copyLink").onclick = () => { navigator.clipboard.writeText(link); toast("Ссылка скопирована"); };
+})();
+</script>
+</body>
+</html>

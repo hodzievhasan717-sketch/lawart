@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Вход и регистрация — Lawart</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="auth-wrap">
+  <div class="auth-art">
+    <div class="big-sec">§</div>
+    <div><span class="mono" style="color:var(--brass)">Lawart · для авторов</span>
+      <h2 style="margin-top:16px">Публикуйте <i>право</i>,<br>а не просто пишите о нем</h2></div>
+    <blockquote>Один аккаунт, чтобы подать статью, следить за ее проверкой и общаться с редакцией.</blockquote>
+  </div>
+  <div class="auth-form">
+    <form id="f">
+      <div class="tabs"><button type="button" data-m="login">Вход</button><button type="button" data-m="signup">Регистрация</button><button type="button" data-m="reset">Забыли пароль</button></div>
+      <div data-show="signup">
+        <label>ФИО полностью</label><input name="full_name" placeholder="Иванов Иван Иванович">
+        <div class="row2">
+          <div><label>Ученая степень <small>(если есть)</small></label><input name="degree" placeholder="к.ю.н., PhD, магистрант"></div>
+          <div><label>Должность</label><input name="position" placeholder="Студент, преподаватель, юрист"></div>
+        </div>
+        <label>Место работы или учебы</label><input name="organization" placeholder="ТГЮУ, компания, адвокатское бюро">
+        <label>Телефон <small>(видит только редакция)</small></label><input name="phone" placeholder="+998">
+      </div>
+      <label>Email</label><input name="email" type="email" required autocomplete="email">
+      <div data-show="login signup"><label>Пароль</label><input name="password" type="password" minlength="6" autocomplete="current-password"></div>
+      <div id="msg"></div>
+      <button class="btn red" style="width:100%;margin-top:20px" id="go">Войти</button>
+      <p class="muted" style="font-size:.85rem;margin-top:14px" data-show="signup">Регистрируясь, вы подтверждаете, что статья написана вами, и соглашаетесь на ее публикацию в открытом доступе после одобрения редакцией.</p>
+    </form>
+  </div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/key.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/app.js"></script>
+<script>
+(async () => {
+  await boot("");
+  const next = qs("next") || "";
+  if (ME.user) { location.href = next || (ME.profile?.is_admin ? "admin.html" : "cabinet.html"); return; }
+  let mode = qs("mode") || "login";
+  const labels = { login: "Войти", signup: "Создать аккаунт", reset: "Прислать ссылку" };
+  function setMode(m) {
+    mode = m;
+    $$(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.m === m));
+    $$("[data-show]").forEach(el => el.classList.toggle("hidden", !el.dataset.show.split(" ").includes(m)));
+    $("#go").textContent = labels[m]; $("#msg").innerHTML = "";
+    $("[name=full_name]").required = m === "signup";
+    $("[name=password]").required = m !== "reset";
+  }
+  $$(".tabs button").forEach(b => b.onclick = () => setMode(b.dataset.m));
+  setMode(mode);
+  $("#f").onsubmit = async e => {
+    e.preventDefault();
+    const fd = Object.fromEntries(new FormData(e.target));
+    const btn = $("#go"); btn.disabled = true; $("#msg").innerHTML = "";
+    try {
+      if (mode === "login") {
+        const { error } = await sb.auth.signInWithPassword({ email: fd.email, password: fd.password });
+        if (error) throw new Error(error.message.includes("Invalid") ? "Неверный email или пароль" : error.message);
+      } else if (mode === "signup") {
+        const { data, error } = await sb.auth.signUp({ email: fd.email, password: fd.password, options: {
+          emailRedirectTo: location.href.replace(/[^/]*$/, "") + "cabinet.html",
+          data: { full_name: fd.full_name, degree: fd.degree, organization: fd.organization, position: fd.position, phone: fd.phone } } });
+        if (error) throw new Error(error.message.includes("registered") ? "Этот email уже зарегистрирован, войдите" : error.message);
+        if (!data.session) { $("#msg").innerHTML = `<div class="ok">Мы отправили письмо на ${esc(fd.email)}. Откройте его и подтвердите адрес, затем войдите.</div>`; btn.disabled = false; return; }
+      } else {
+        const { error } = await sb.auth.resetPasswordForEmail(fd.email, { redirectTo: location.href.replace(/[^/]*$/, "") + "cabinet.html#password" });
+        if (error) throw error;
+        $("#msg").innerHTML = `<div class="ok">Ссылка для смены пароля отправлена на почту.</div>`; btn.disabled = false; return;
+      }
+      await loadMe();
+      location.href = next || (ME.profile?.is_admin ? "admin.html" : "cabinet.html");
+    } catch (err) { $("#msg").innerHTML = `<div class="err">${esc(err.message)}</div>`; btn.disabled = false; }
+  };
+})();
+</script>
+</body>
+</html>

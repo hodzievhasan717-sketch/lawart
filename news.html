@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Новости — Lawart</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+  <section class="page-title"><div class="wrap"><span class="mono muted" id="kicker">Журнал</span><h1 id="h"></h1>
+    <div class="chips" style="margin-top:22px"><a class="chip" href="news.html" id="cN" style="text-decoration:none">Новости</a><a class="chip" href="news.html?kind=interesting" id="cI" style="text-decoration:none">Интересное</a></div></div></section>
+  <div class="wrap"><div class="news-page" id="grid"></div></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/key.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/app.js"></script>
+<script>
+(async () => {
+  const kind = qs("kind") === "interesting" ? "interesting" : "news";
+  await boot(kind === "news" ? "news" : "interesting");
+  $("#h").innerHTML = kind === "news" ? "Новости <i>журнала</i>" : "Интересное <i>о праве</i>";
+  document.title = (kind === "news" ? "Новости" : "Интересное") + " — Lawart";
+  $(kind === "news" ? "#cN" : "#cI").classList.add("on");
+  const { data } = await sb.from("news").select("id,title,summary,cover_url,created_at").eq("kind", kind).eq("published", true).order("created_at", { ascending: false });
+  $("#grid").innerHTML = data?.length ? data.map(n => `<a class="ncard reveal" href="news-item.html?id=${n.id}">
+      <div class="img" style="${n.cover_url ? `background-image:url('${esc(n.cover_url)}')` : ""}">${n.cover_url ? "" : "§"}</div>
+      <div class="t"><span class="mono muted">${fmtDate(n.created_at)}</span><h3>${esc(n.title)}</h3><p>${esc(n.summary)}</p></div></a>`).join("")
+    : `<div class="empty-state" style="grid-column:1/-1"><b>Скоро здесь будут материалы</b>Редакция готовит первые публикации.</div>`;
+  reveal();
+})();
+</script>
+</body>
+</html>

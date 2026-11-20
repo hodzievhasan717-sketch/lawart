@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex">
 <title>Lawart — галактика (демо)</title>
 <style>
-  html,body{margin:0;height:100%;background:#05060a;overflow:hidden;font-family:system-ui,Segoe UI,Roboto,sans-serif;color:#efe9dc}
+  html,body{margin:0;height:100%;background:#000002;overflow:hidden;font-family:system-ui,Segoe UI,Roboto,sans-serif;color:#efe9dc}
   canvas{display:block}
   .ui{position:fixed;left:40px;bottom:36px;z-index:2;max-width:520px}
   .ui h1{font:400 64px/1 Georgia,serif;margin:0 0 10px;letter-spacing:-.01em}
@@ -40,8 +40,8 @@ const BG = mobile ? 4000 : 12000;             // дальний звездный
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
-renderer.setClearColor(0x03040a);
-renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .95;
+renderer.setClearColor(0x000002);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .85;
 document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, .1, 200);
@@ -268,7 +268,7 @@ core.scale.set(3.2, 3.2, 1); group.add(core);
 const nebulae = [];
 [["rgba(120,90,255,.35)", "rgba(80,60,200,.08)", -3.5, .6, -2], ["rgba(70,140,255,.30)", "rgba(40,90,200,.07)", 3.8, -.8, -3], ["rgba(210,74,94,.22)", "rgba(140,30,45,.05)", .5, 1.6, -4]].forEach(([a, b, x, y, z]) => {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(a, b), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: .9 }));
-  s.position.set(x, y, z); s.scale.set(9, 9, 1); s.material.opacity = .45; scene.add(s); nebulae.push(s);
+  s.position.set(x, y, z); s.scale.set(9, 9, 1); s.material.opacity = .22; scene.add(s); nebulae.push(s);
 });
 
 // ---------- дальний звездный фон ----------

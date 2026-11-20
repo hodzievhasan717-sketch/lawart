@@ -895,3 +895,27 @@ table.t th{font:700 .7rem var(--mono);text-transform:uppercase;letter-spacing:.0
   .u-kpis{grid-template-columns:repeat(2,1fr)}.u-tools{grid-template-columns:1fr}
   .lbx-p{left:8px}.lbx-n{right:8px}
 }
+
+/* ---------- оферта и оплата ---------- */
+.b-accepted{background:#dfe9f6;color:#1f4f8a}
+[data-theme=dark] .b-accepted,.night .b-accepted{background:#18283d;color:#9cc0ee}
+.note.ok{background:color-mix(in srgb,var(--green) 12%,var(--card));border-color:color-mix(in srgb,var(--green) 40%,transparent);color:var(--green);font-weight:600}
+.btn.gold{background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#1a1408;border-color:transparent}
+.of-wrap{padding:48px 28px 100px;display:grid;gap:28px}
+.of-short{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:18px 0}
+.of-card{border:1px solid var(--line);border-radius:18px;padding:20px;background:var(--card2);display:grid;gap:6px;align-content:start}
+.of-card span{color:var(--gold);font-size:.72rem;font-weight:700}
+.of-card b{font:600 1.2rem/1.2 var(--serif)}
+.of-card p{margin:0;color:var(--ink2);font-size:.9rem;line-height:1.5}
+.of-body h3{font:600 1.3rem var(--serif);margin:26px 0 8px}
+.of-body h3:first-child{margin-top:0}
+.of-body p{margin:0 0 10px;line-height:1.65;color:var(--ink2)}
+article.of-body{max-width:860px}
+.of-gate h2{margin:10px 0 4px}
+.of-details{margin:8px 0 18px;border:1px solid var(--line);border-radius:16px;padding:14px 18px;background:var(--card)}
+.of-details summary{cursor:pointer;font-weight:700}
+.of-details .of-body{max-height:46vh;overflow:auto;margin-top:14px;padding-right:8px}
+.of-check{display:flex;gap:12px;align-items:flex-start;margin:6px 0 18px;font-weight:600;cursor:pointer}
+.of-check input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--ox);flex:none}
+.of-note{margin-top:12px}
+.of-note a{color:var(--ox)}

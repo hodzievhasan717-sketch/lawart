@@ -341,7 +341,7 @@ function paintUser() {
   document.addEventListener("click", e => { if (!e.target.closest(".bell-wrap")) $("#bellPop")?.classList.add("hidden"); });
   pollBell(); setInterval(pollBell, 15000);
 }
-const NOTIF_MAP = [[/^Новое сообщение от редакции/, "n.dm"], [/^Личное сообщение от/, "n.dmUser"], [/^Новая заявка/, "n.newSub"], [/^Автор прислал/, "n.resub"], [/^Ваша статья опубликована/, "n.published"], [/^Редакция просит/, "n.revision"], [/^Редакция отклонила/, "n.rejected"], [/^Автор ответил/, "n.authorReplied"], [/^Вопрос редакции/, "n.editorAsked"]];
+const NOTIF_MAP = [[/^Статья одобрена/, "n.accepted"], [/^Оплата получена/, "n.paid"], [/^Новое сообщение от редакции/, "n.dm"], [/^Личное сообщение от/, "n.dmUser"], [/^Новая заявка/, "n.newSub"], [/^Автор прислал/, "n.resub"], [/^Ваша статья опубликована/, "n.published"], [/^Редакция просит/, "n.revision"], [/^Редакция отклонила/, "n.rejected"], [/^Автор ответил/, "n.authorReplied"], [/^Вопрос редакции/, "n.editorAsked"]];
 function notifText(s) {
   if (LANG === "ru") return s;
   const m = String(s).match(/«(.*)»/);
@@ -386,7 +386,7 @@ function renderFooter() {
         <a class="btn gold sm magnetic" href="cabinet.html#new">${t("f.submit")} ${ICON.arrow}</a>
       </div>
       <div><h5>${t("f.journal")}</h5><a href="articles.html">${t("f.all")}</a><a href="index.html#rubrics">${t("nav.rubrics")}</a><a href="news.html">${t("nav.news")}</a><a href="news.html?kind=interesting">${t("nav.interesting")}</a></div>
-      <div><h5>${t("f.forAuthors")}</h5><a href="authors.html">${t("f.req")}</a><a href="auth.html?mode=signup">${t("f.register")}</a><a href="cabinet.html">${t("f.cabinet")}</a><a href="https://t.me/${esc(CFG.CONTACT_TELEGRAM)}" target="_blank" rel="noopener">${t("f.tg")}</a></div>
+      <div><h5>${t("f.forAuthors")}</h5><a href="authors.html">${t("f.req")}</a><a href="auth.html?mode=signup">${t("f.register")}</a><a href="cabinet.html">${t("f.cabinet")}</a><a href="https://t.me/${esc(CFG.CONTACT_TELEGRAM)}" target="_blank" rel="noopener">${t("f.tg")}</a><a href="offer.html">${window.offerT ? offerT().footer : "Оферта"}</a></div>
       <div><h5>${t("f.readers")}</h5><a href="articles.html?saved=1">${t("h.saved")}</a><a href="#" data-random>${t("p.random")}</a><a href="#" data-search>${t("f.searchAll")}</a>
         <div class="foot-lang">${Object.keys(LANGS).map(k => `<button type="button" data-lang="${k}" class="${k === LANG ? "on" : ""}">${k.toUpperCase()}</button>`).join("")}</div></div>
     </div>

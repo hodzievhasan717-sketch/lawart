@@ -919,3 +919,10 @@ article.of-body{max-width:860px}
 .of-check input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--ox);flex:none}
 .of-note{margin-top:12px}
 .of-note a{color:var(--ox)}
+.pl-wrap{padding:48px 28px 100px;display:grid;gap:30px}
+.pl-search{margin-top:26px;max-width:560px}
+.pl-search input{width:100%;padding:16px 20px;border-radius:999px;border:1px solid rgba(230,201,140,.35);background:rgba(255,255,255,.06);color:#fff;font:500 1rem var(--sans)}
+.pl-search input::placeholder{color:rgba(255,255,255,.55)}
+.pl-cta{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
+.pl-cta h3{margin:0 0 4px;font:600 1.5rem var(--serif)}
+.pf-note{margin:0 0 18px}.pf-note a{color:inherit;font-weight:700}

@@ -282,7 +282,7 @@ async function requireAuth() {
 }
 
 /* ---------- шапка ---------- */
-const NAV = [["index.html", "nav.home", "home"], ["articles.html", "nav.articles", "articles"], ["index.html#rubrics", "nav.rubrics", "rubrics"], ["news.html", "nav.news", "news"], ["news.html?kind=interesting", "nav.interesting", "interesting"], ["authors.html", "nav.authors", "authors"]];
+const NAV = [["index.html", "nav.home", "home"], ["articles.html", "nav.articles", "articles"], ["people.html", "nav.people", "people"], ["news.html", "nav.news", "news"], ["news.html?kind=interesting", "nav.interesting", "interesting"], ["authors.html", "nav.authors", "authors"]];
 function langMenu() {
   return `<div class="lang-wrap"><button class="lang-btn" type="button" aria-label="${t("h.lang")}">${ICON.globe}<span>${LANG.toUpperCase()}</span></button>
     <div class="lang-pop hidden">${Object.entries(LANGS).map(([k, v]) => `<button type="button" data-lang="${k}" class="${k === LANG ? "on" : ""}"><b>${k.toUpperCase()}</b>${v}</button>`).join("")}</div></div>`;

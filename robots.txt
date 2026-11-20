@@ -1,4 +1,5 @@
 User-agent: *
 Disallow: /admin.html
 Disallow: /cabinet.html
+Disallow: /auth.html
 Sitemap: https://lawart.uz/sitemap.xml

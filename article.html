@@ -4,7 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Статья — Lawart</title>
-<meta name="description" content="Lawart.uz — электронный научный журнал юридических статей. Читайте исследования по праву Узбекистана и публикуйте свои статьи онлайн.">
+<meta name="description" content="Lawart.uz — электронный научный журнал юридических статей Узбекистана. Научные статьи по праву в PDF, публикация статей для студентов, магистрантов и юристов. Huquqiy ilmiy maqolalar jurnali.">
+<meta name="keywords" content="Lawart, юридический журнал, научные статьи по праву, публикация статей Узбекистан, право Узбекистана, huquqiy maqolalar, ilmiy jurnal, ТГЮУ">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta property="og:image" content="https://lawart.uz/assets/og.png">
+<meta property="og:locale" content="ru_RU">
 <meta property="og:title" content="Статья — Lawart">
 <meta property="og:description" content="Научный журнал, где право становится искусством аргумента.">
 <meta property="og:type" content="website">
@@ -101,6 +105,13 @@
       ${pr.bio ? `<p>${esc(pr.bio.slice(0, 160))}${pr.bio.length > 160 ? "…" : ""}</p>` : ""}
       <span class="au-go">${t("pp.open")} →</span></a>`;
   });
+  try {
+    const md = document.querySelector('meta[name="description"]'); if (md) md.content = String(a.abstract || "").slice(0, 300);
+    const ld = document.createElement("script"); ld.type = "application/ld+json";
+    ld.textContent = JSON.stringify({ "@context": "https://schema.org", "@type": "ScholarlyArticle", headline: a.title, author: authorNames(a.authors).map(n => ({ "@type": "Person", name: n })),
+      datePublished: a.published_at, inLanguage: a.lang, keywords: a.keywords, abstract: a.abstract, about: a.category, isPartOf: { "@type": "Periodical", name: "Lawart", url: "https://lawart.uz/" }, url: "https://lawart.uz/article.html?id=" + a.id });
+    document.head.appendChild(ld);
+  } catch (e) {}
   const cites = citeFormats(a);
   $("#gostBox").textContent = cites.gost;
   $("#copyGost").onclick = () => copyText(cites.gost, t("ar.citeCopied"));

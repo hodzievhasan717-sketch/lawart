@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Lawart — галактика (демо)</title>
+<style>
+  html,body{margin:0;height:100%;background:#05060a;overflow:hidden;font-family:system-ui,Segoe UI,Roboto,sans-serif;color:#efe9dc}
+  canvas{display:block}
+  .ui{position:fixed;left:40px;bottom:36px;z-index:2;max-width:520px}
+  .ui h1{font:400 64px/1 Georgia,serif;margin:0 0 10px;letter-spacing:-.01em}
+  .ui h1 i{color:#e3c27d}
+  .ui p{margin:0 0 16px;opacity:.75;line-height:1.5}
+  .ui .row{display:flex;gap:8px;flex-wrap:wrap}
+  .ui button{background:rgba(255,255,255,.06);border:1px solid rgba(227,194,125,.4);color:#efe9dc;border-radius:999px;padding:9px 16px;font-size:14px;cursor:pointer}
+  .ui button.on{background:#e3c27d;color:#15110a}
+  .lbl{position:fixed;right:36px;top:30px;font:600 12px/1 ui-monospace,monospace;letter-spacing:.14em;color:#e3c27d;text-transform:uppercase;z-index:2}
+</style>
+</head>
+<body>
+<div class="lbl" id="lbl">Галактика</div>
+<div class="ui">
+  <h1>Law<i>art</i></h1>
+  <p>Демо нового фона: галактика из звезд. Нажмите на галактику, и звезды соберутся в §, весы Фемиды, LEX или книгу. Двигайте мышью, чтобы повернуть.</p>
+  <div class="row" id="btns"></div>
+</div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from "three";
+
+const mobile = matchMedia("(max-width: 760px)").matches;
+const N = mobile ? 16000 : 42000;            // звезды галактики (они же собираются в фигуры)
+const BG = mobile ? 2500 : 6000;             // дальний звездный фон
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.setClearColor(0x05060a);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, .1, 200);
+camera.position.set(0, 0, 9);
+
+// ---------- шейдер звезд: мягкое свечение, мерцание, размер по глубине ----------
+const starVS = `
+attribute float size; attribute vec3 color; attribute float seed;
+uniform float uTime; uniform float uPR;
+varying vec3 vColor; varying float vTw;
+void main(){
+  vec4 mv = modelViewMatrix * vec4(position,1.0);
+  float tw = 0.75 + 0.25*sin(uTime*(1.2+seed*2.5) + seed*40.0);
+  vTw = tw; vColor = color;
+  gl_PointSize = size * uPR * tw * (12.0 / -mv.z);
+  gl_Position = projectionMatrix * mv;
+}`;
+const starFS = `
+varying vec3 vColor; varying float vTw;
+void main(){
+  vec2 p = gl_PointCoord - 0.5; float d = length(p);
+  float core = smoothstep(0.5, 0.0, d);
+  float glow = pow(core, 2.6);
+  float a = glow * vTw;
+  if (a < 0.01) discard;
+  gl_FragColor = vec4(vColor * (0.6 + 1.4*pow(core,6.0)), a);
+}`;
+const mkMat = () => new THREE.ShaderMaterial({
+  uniforms: { uTime: { value: 0 }, uPR: { value: renderer.getPixelRatio() } },
+  vertexShader: starVS, fragmentShader: starFS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+});
+
+// ---------- палитра ----------
+const C = {
+  core: new THREE.Color("#fff1cf"), gold: new THREE.Color("#e3c27d"), cream: new THREE.Color("#f4efe4"),
+  blue: new THREE.Color("#8fb4ff"), violet: new THREE.Color("#b48cff"), ox: new THREE.Color("#d24a5e")
+};
+
+// ---------- галактика ----------
+function galaxy(n) {
+  const pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
+  const arms = 4, R = 5.2;
+  const c = new THREE.Color();
+  for (let i = 0; i < n; i++) {
+    const r = Math.pow(Math.random(), 1.6) * R;
+    const arm = (i % arms) / arms * Math.PI * 2;
+    const spin = r * 1.05;
+    const spread = (1 - r / R) * .55 + .12;
+    const rx = Math.pow(Math.random(), 3) * (Math.random() < .5 ? 1 : -1) * spread * r * .9;
+    const ry = Math.pow(Math.random(), 3) * (Math.random() < .5 ? 1 : -1) * (.32 - r / R * .22);
+    const rz = Math.pow(Math.random(), 3) * (Math.random() < .5 ? 1 : -1) * spread * r * .9;
+    pos[i * 3] = Math.cos(arm + spin) * r + rx;
+    pos[i * 3 + 1] = ry;
+    pos[i * 3 + 2] = Math.sin(arm + spin) * r + rz;
+    const t = r / R;
+    c.copy(C.core).lerp(C.gold, Math.min(1, t * 2.2));
+    if (t > .45) c.lerp(Math.random() < .55 ? C.blue : C.violet, (t - .45) * 1.4);
+    if (Math.random() < .015) c.copy(C.ox);
+    col.set([c.r, c.g, c.b], i * 3);
+  }
+  return { pos, col };
+}
+
+// ---------- фигуры из точек ----------
+function sampleCanvas(draw, n, w = 520, h = 520, scale = 4.4, depth = .35) {
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  const g = cv.getContext("2d"); g.fillStyle = "#000"; g.fillRect(0, 0, w, h); g.fillStyle = "#fff"; g.strokeStyle = "#fff";
+  draw(g, w, h);
+  const data = g.getImageData(0, 0, w, h).data, pts = [];
+  for (let y = 0; y < h; y += 2) for (let x = 0; x < w; x += 2) if (data[(y * w + x) * 4] > 128) pts.push([x, y]);
+  const out = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const p = pts[(Math.random() * pts.length) | 0];
+    out[i * 3] = (p[0] / w - .5) * scale + (Math.random() - .5) * .02;
+    out[i * 3 + 1] = -(p[1] / h - .5) * scale + (Math.random() - .5) * .02;
+    out[i * 3 + 2] = (Math.random() - .5) * depth;
+  }
+  return out;
+}
+function shapeSection(n) { return sampleCanvas((g, w, h) => { g.font = `bold ${h * .92}px Georgia, serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("§", w / 2, h * .54); }, n); }
+function shapeLex(n) { return sampleCanvas((g, w, h) => { g.font = `600 ${h * .42}px Georgia, serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("LEX", w / 2, h / 2); }, n, 900, 420, 6.2); }
+function shapeScales(n) {
+  return sampleCanvas((g, w, h) => {
+    g.lineWidth = 12; g.lineCap = "round";
+    const cx = w / 2;
+    g.beginPath(); g.moveTo(cx, h * .14); g.lineTo(cx, h * .84); g.stroke();
+    g.beginPath(); g.moveTo(cx - w * .34, h * .24); g.lineTo(cx + w * .34, h * .24); g.stroke();
+    g.beginPath(); g.arc(cx, h * .12, 16, 0, 7); g.fill();
+    g.fillRect(cx - w * .16, h * .82, w * .32, 16);
+    for (const s of [-1, 1]) {
+      const x = cx + s * w * .34;
+      g.lineWidth = 5; g.beginPath(); g.moveTo(x, h * .24); g.lineTo(x - w * .1, h * .52); g.moveTo(x, h * .24); g.lineTo(x + w * .1, h * .52); g.stroke();
+      g.lineWidth = 12; g.beginPath(); g.arc(x, h * .52, w * .11, 0, Math.PI); g.stroke();
+    }
+  }, n);
+}
+function shapeBook(n) {
+  const out = new Float32Array(n * 3), PW = 1.9, PH = 1.3;
+  const curve = x => .38 * Math.sqrt(Math.min(1, Math.abs(x) / PW));
+  for (let i = 0; i < n; i++) {
+    const side = i % 2 ? 1 : -1, r = Math.random();
+    let ax, y;
+    if (r < .14) { if (Math.random() < .5) { ax = .04 + Math.random() * (PW - .04); y = (Math.random() < .5 ? -1 : 1) * PH; } else { ax = PW; y = (Math.random() * 2 - 1) * PH; } }
+    else if (r < .88) { const rows = 14, k = (Math.random() * rows) | 0; ax = .18 + Math.random() * (PW - .36) * (k % 5 === 4 ? .6 : .92); y = PH - .24 - k * ((2 * PH - .48) / (rows - 1)); }
+    else { ax = .04 + Math.random() * (PW - .04); y = (Math.random() * 2 - 1) * PH; }
+    const x = side * ax;
+    out[i * 3] = x; out[i * 3 + 1] = y; out[i * 3 + 2] = curve(x) + (Math.random() - .5) * .01;
+  }
+  return out;
+}
+
+const gal = galaxy(N);
+const SHAPES = [
+  { name: "Галактика", pos: gal.pos, tilt: [1.05, 0], spin: .045 },
+  { name: "§ — знак параграфа", pos: shapeSection(N), tilt: [0, 0], spin: 0 },
+  { name: "Весы Фемиды", pos: shapeScales(N), tilt: [0, 0], spin: 0 },
+  { name: "LEX — закон", pos: shapeLex(N), tilt: [0, 0], spin: 0 },
+  { name: "Книга", pos: shapeBook(N), tilt: [-.45, 0], spin: 0 }
+];
+
+// ---------- основное облако ----------
+const geo = new THREE.BufferGeometry();
+const cur = new Float32Array(gal.pos);
+const sizes = new Float32Array(N), seeds = new Float32Array(N), speed = new Float32Array(N);
+for (let i = 0; i < N; i++) { sizes[i] = Math.random() < .02 ? 3.2 + Math.random() * 2.5 : .7 + Math.pow(Math.random(), 3) * 2.2; seeds[i] = Math.random(); speed[i] = .025 + Math.random() * .05; }
+geo.setAttribute("position", new THREE.BufferAttribute(cur, 3));
+geo.setAttribute("color", new THREE.BufferAttribute(gal.col, 3));
+geo.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
+geo.setAttribute("seed", new THREE.BufferAttribute(seeds, 1));
+const mat = mkMat();
+const stars = new THREE.Points(geo, mat);
+const group = new THREE.Group(); group.add(stars); scene.add(group);
+
+// ---------- ядро и туманности (мягкие светящиеся спрайты) ----------
+function glowTex(inner, outer) {
+  const c = document.createElement("canvas"); c.width = c.height = 256; const g = c.getContext("2d");
+  const gr = g.createRadialGradient(128, 128, 0, 128, 128, 128); gr.addColorStop(0, inner); gr.addColorStop(.35, outer); gr.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = gr; g.fillRect(0, 0, 256, 256); return new THREE.CanvasTexture(c);
+}
+const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex("rgba(255,236,200,.95)", "rgba(227,170,90,.25)"), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+core.scale.set(3.4, 3.4, 1); group.add(core);
+const nebulae = [];
+[["rgba(120,90,255,.35)", "rgba(80,60,200,.08)", -3.5, .6, -2], ["rgba(70,140,255,.30)", "rgba(40,90,200,.07)", 3.8, -.8, -3], ["rgba(210,74,94,.22)", "rgba(140,30,45,.05)", .5, 1.6, -4]].forEach(([a, b, x, y, z]) => {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(a, b), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: .9 }));
+  s.position.set(x, y, z); s.scale.set(9, 9, 1); scene.add(s); nebulae.push(s);
+});
+
+// ---------- дальний звездный фон ----------
+{
+  const g = new THREE.BufferGeometry(), p = new Float32Array(BG * 3), c = new Float32Array(BG * 3), s = new Float32Array(BG), sd = new Float32Array(BG);
+  for (let i = 0; i < BG; i++) {
+    const r = 30 + Math.random() * 60, th = Math.random() * 6.283, ph = Math.acos(2 * Math.random() - 1);
+    p.set([r * Math.sin(ph) * Math.cos(th), r * Math.sin(ph) * Math.sin(th), r * Math.cos(ph)], i * 3);
+    const col = Math.random() < .2 ? C.blue : Math.random() < .2 ? C.gold : C.cream; c.set([col.r, col.g, col.b], i * 3);
+    s[i] = 4 + Math.random() * 8; sd[i] = Math.random();
+  }
+  g.setAttribute("position", new THREE.BufferAttribute(p, 3)); g.setAttribute("color", new THREE.BufferAttribute(c, 3));
+  g.setAttribute("size", new THREE.BufferAttribute(s, 1)); g.setAttribute("seed", new THREE.BufferAttribute(sd, 1));
+  var bgMat = mkMat(); var bg = new THREE.Points(g, bgMat); scene.add(bg);
+}
+
+// ---------- падающие звезды ----------
+const meteors = [];
+function meteor() {
+  const len = 1.2 + Math.random() * 1.2;
+  const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(-len, len * .35, 0)]);
+  const m = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xfff1cf, transparent: true, opacity: 0, blending: THREE.AdditiveBlending }));
+  m.position.set(4 + Math.random() * 6, 2 + Math.random() * 3, -6 - Math.random() * 6);
+  m.userData = { v: new THREE.Vector3(-.16 - Math.random() * .1, -.05, 0), life: 0 };
+  scene.add(m); meteors.push(m);
+}
+
+// ---------- переходы ----------
+let idx = 0, target = SHAPES[0].pos, scatterT = 0;
+const lbl = document.getElementById("lbl"), btns = document.getElementById("btns");
+SHAPES.forEach((s, i) => { const b = document.createElement("button"); b.textContent = s.name.split(" — ")[0]; b.onclick = e => { e.stopPropagation(); go(i); }; btns.appendChild(b); });
+function go(i) {
+  idx = (i + SHAPES.length) % SHAPES.length; target = SHAPES[idx].pos; scatterT = 1;
+  lbl.textContent = SHAPES[idx].name; [...btns.children].forEach((b, k) => b.classList.toggle("on", k === idx));
+  for (let k = 0; k < N; k++) speed[k] = .02 + Math.random() * .05;
+}
+go(0);
+renderer.domElement.addEventListener("click", () => go(idx + 1));
+
+const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+addEventListener("pointermove", e => { mouse.tx = e.clientX / innerWidth - .5; mouse.ty = e.clientY / innerHeight - .5; });
+addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+if (innerWidth > 900) group.position.x = 2.2;
+
+const clock = new THREE.Clock(); let spinA = 0;
+function frame() {
+  const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
+  mat.uniforms.uTime.value = t; bgMat.uniforms.uTime.value = t;
+  scatterT = Math.max(0, scatterT - dt * 1.4);
+  const p = geo.attributes.position.array;
+  for (let i = 0; i < N; i++) {
+    const j = i * 3, s = speed[i] * Math.min(1, dt * 60);
+    const burst = scatterT * .045 * Math.sin(seeds[i] * 50);
+    p[j] += (target[j] - p[j]) * s + burst;
+    p[j + 1] += (target[j + 1] - p[j + 1]) * s + burst * .6;
+    p[j + 2] += (target[j + 2] - p[j + 2]) * s - burst;
+  }
+  geo.attributes.position.needsUpdate = true;
+  const S = SHAPES[idx];
+  spinA += dt * (S.spin || 0);
+  mouse.x += (mouse.tx - mouse.x) * .05; mouse.y += (mouse.ty - mouse.y) * .05;
+  const baseY = S.spin ? spinA : Math.sin(t * .35) * .25;
+  group.rotation.y += (baseY + mouse.x * .6 - group.rotation.y) * .08;
+  group.rotation.x += (S.tilt[0] + mouse.y * .35 - group.rotation.x) * .05;
+  core.material.opacity += ((idx === 0 ? 1 : .25) - core.material.opacity) * .05;
+  nebulae.forEach((n, k) => { n.material.rotation = t * .02 * (k % 2 ? 1 : -1); });
+  bg.rotation.y = t * .004;
+  if (Math.random() < .006) meteor();
+  for (let k = meteors.length - 1; k >= 0; k--) {
+    const m = meteors[k]; m.userData.life += dt; m.position.add(m.userData.v);
+    const l = m.userData.life; m.material.opacity = l < .2 ? l * 4 : Math.max(0, .8 - (l - .2) * 1.2);
+    if (l > 1) { scene.remove(m); m.geometry.dispose(); meteors.splice(k, 1); }
+  }
+  camera.position.x += (mouse.x * .6 - camera.position.x) * .03; camera.position.y += (-mouse.y * .4 - camera.position.y) * .03;
+  camera.lookAt(0, 0, 0);
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>

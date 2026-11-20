@@ -312,7 +312,7 @@ const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
 addEventListener("pointermove", e => { mouse.tx = e.clientX / innerWidth - .5; mouse.ty = e.clientY / innerHeight - .5; });
 addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); });
 if (innerWidth > 900) group.position.x = 2.2;
-group.scale.setScalar(.82);
+
 
 const clock = new THREE.Clock(); let spinA = 0;
 function frame() {
@@ -335,6 +335,8 @@ function frame() {
   group.rotation.y += (baseY + mouse.x * .6 - group.rotation.y) * .08;
   group.rotation.x += (S.tilt[0] + mouse.y * .35 - group.rotation.x) * .05;
   const gOn = idx === 0 ? 1 : 0;
+  const sc = group.scale.x + ((idx === 0 ? .82 : 1.25) - group.scale.x) * .05; group.scale.setScalar(sc);
+  bloom.strength += ((idx === 0 ? (mobile ? .55 : .7) : .45) - bloom.strength) * .05;
   core.material.opacity += ((idx === 0 ? 1 : .2) - core.material.opacity) * .05;
   gasMat.uniforms.uO.value += (gOn - gasMat.uniforms.uO.value) * .06;
   dustMat.uniforms.uO.value += (gOn - dustMat.uniforms.uO.value) * .06;

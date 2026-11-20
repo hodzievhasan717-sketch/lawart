@@ -18,7 +18,7 @@ export function initHero(canvas, opts = {}) {
   renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.5 : 2));
   renderer.setSize(W, H, false);
   renderer.setClearColor(0x000002);
-  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .85;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .55;
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(55, W / H, .1, 200);
   camera.position.set(0, 0, 9);
@@ -173,11 +173,11 @@ void main(){
 
   const gal = galaxy(N);
   const SHAPES = [
-    { pos: gal.pos, tilt: 1.0, spin: .03, scale: .82 },
-    { pos: shapeSection(N), tilt: 0, spin: 0, scale: 1.2 },
-    { pos: shapeScales(N), tilt: 0, spin: 0, scale: 1.2 },
-    { pos: shapeLex(N), tilt: 0, spin: 0, scale: 1.1 },
-    { pos: shapeBook(N), tilt: -.45, spin: 0, scale: 1.15 }
+    { pos: gal.pos, tilt: 1.0, spin: .03, scale: .48 },
+    { pos: shapeSection(N), tilt: 0, spin: 0, scale: .78 },
+    { pos: shapeScales(N), tilt: 0, spin: 0, scale: .78 },
+    { pos: shapeLex(N), tilt: 0, spin: 0, scale: .7 },
+    { pos: shapeBook(N), tilt: -.45, spin: 0, scale: .74 }
   ];
   const BOOK = 4;
 
@@ -190,7 +190,7 @@ void main(){
   geo.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
   geo.setAttribute("seed", new THREE.BufferAttribute(seeds, 1));
   const mat = mkMat();
-  const group = new THREE.Group(); group.add(new THREE.Points(geo, mat)); scene.add(group);
+  const group = new THREE.Group(); group.add(new THREE.Points(geo, mat)); scene.add(group); group.scale.setScalar(.48);
 
   const gasD = gas(mobile ? 500 : 1300);
   const gasGeo = new THREE.BufferGeometry();
@@ -221,7 +221,7 @@ void main(){
   core.scale.set(3.2, 3.2, 1); group.add(core);
   const nebulae = [];
   [["rgba(120,90,255,.35)", "rgba(80,60,200,.08)", -3.5, .6, -2], ["rgba(70,140,255,.30)", "rgba(40,90,200,.07)", 3.8, -.8, -3], ["rgba(210,74,94,.22)", "rgba(140,30,45,.05)", .5, 1.6, -4]].forEach(([a, b, x, y, z]) => {
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(a, b), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: .22 }));
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(a, b), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: .14 }));
     s.position.set(x, y, z); s.scale.set(9, 9, 1); scene.add(s); nebulae.push(s);
   });
   function flareTex() {
@@ -232,7 +232,7 @@ void main(){
     return new THREE.CanvasTexture(c);
   }
   const FT = flareTex(), flares = [];
-  for (let i = 0; i < (mobile ? 10 : 24); i++) {
+  for (let i = 0; i < (mobile ? 6 : 12); i++) {
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: FT, color: new THREE.Color().setHSL(Math.random() < .5 ? .6 : .1, .5, .85), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
     sp.userData = { k: (Math.random() * N) | 0, s: .25 + Math.random() * .35, ph: Math.random() * 6 }; group.add(sp); flares.push(sp);
   }
@@ -285,7 +285,7 @@ void main(){
 
   const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
   addEventListener("pointermove", e => { mouse.tx = e.clientX / innerWidth - .5; mouse.ty = e.clientY / innerHeight - .5; }, { passive: true });
-  const place = () => { group.position.x = W > 900 ? 2.2 : 0; group.position.y = W > 900 ? 0 : 1.2; };
+  const place = () => { group.position.x = W > 900 ? 3.2 : 0; group.position.y = W > 900 ? 0 : 1.2; };
   place();
   new ResizeObserver(() => {
     W = host.clientWidth; H = host.clientHeight; if (!W || !H) return;
@@ -337,11 +337,11 @@ void main(){
     group.rotation.y += (baseY + mouse.x * .5 - group.rotation.y) * .08;
     group.rotation.x += (S.tilt + mouse.y * .3 - group.rotation.x) * .05;
     group.scale.setScalar(group.scale.x + (S.scale - group.scale.x) * .05);
-    bloom.strength += ((gOn ? (mobile ? .55 : .7) : .45) - bloom.strength) * .05;
-    core.material.opacity += ((gOn ? 1 : .2) - core.material.opacity) * .05;
+    bloom.strength += ((gOn ? (mobile ? .35 : .42) : .3) - bloom.strength) * .05;
+    core.material.opacity += ((gOn ? .55 : .12) - core.material.opacity) * .05;
     gasMat.uniforms.uO.value += (gOn - gasMat.uniforms.uO.value) * .06;
     dustMat.uniforms.uO.value += (gOn - dustMat.uniforms.uO.value) * .06;
-    for (const f of flares) { const j = f.userData.k * 3; f.position.set(p[j], p[j + 1], p[j + 2]); const sc = f.userData.s * (.8 + .25 * Math.sin(t * 1.7 + f.userData.ph)); f.scale.set(sc, sc, 1); f.material.opacity = .3 + .7 * gOn; }
+    for (const f of flares) { const j = f.userData.k * 3; f.position.set(p[j], p[j + 1], p[j + 2]); const sc = f.userData.s * (.8 + .25 * Math.sin(t * 1.7 + f.userData.ph)); f.scale.set(sc, sc, 1); f.material.opacity = (.2 + .35 * gOn); }
     nebulae.forEach((n, q) => { n.material.rotation = t * .02 * (q % 2 ? 1 : -1); });
     bg.rotation.y = t * .004;
     camera.position.x += (mouse.x * .5 - camera.position.x) * .03; camera.position.y += (-mouse.y * .3 - camera.position.y) * .03;
@@ -350,7 +350,7 @@ void main(){
     requestAnimationFrame(frame);
   }
   function start() { if (running || !visible) return; running = true; clock.getDelta(); requestAnimationFrame(frame); }
-  if (reduced) { for (let i = 0; i < cur.length; i++) cur[i] = gal.pos[i]; group.rotation.x = 1; group.scale.setScalar(.82); composer.render(); }
+  if (reduced) { for (let i = 0; i < cur.length; i++) cur[i] = gal.pos[i]; group.rotation.x = 1; group.scale.setScalar(.48); composer.render(); }
   else start();
   canvas.classList.add("ready");
   return { next: () => { idle = 0; setTarget(idx + 1); }, flip: flipPage, isBook: () => idx === BOOK };

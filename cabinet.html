@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://xgwzpygoewtfeexraats.supabase.co">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/style.css?v=20261120d">
+<link rel="stylesheet" href="assets/style.css?v=20261120e">
 </head>
 <body>
 <main class="wrap dash">
@@ -32,9 +32,10 @@
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/key.js"></script>
-<script src="assets/config.js?v=20261120d"></script>
-<script src="assets/i18n.js?v=20261120d"></script>
-<script src="assets/app.js?v=20261120d"></script>
+<script src="assets/config.js?v=20261120e"></script>
+<script src="assets/i18n.js?v=20261120e"></script>
+<script src="assets/offer.js?v=20261120e"></script>
+<script src="assets/app.js?v=20261120e"></script>
 <script>
 (async () => {
   if (!(await requireAuth())) return;
@@ -62,7 +63,7 @@
 
   function stepper(st) {
     const order = ["s1", "s2", "s3", "s4"];
-    const reached = { pending: 2, revision: 3, published: 4, rejected: 3 }[st] || 1;
+    const reached = { pending: 2, revision: 3, accepted: 3, published: 4, rejected: 3 }[st] || 1;
     let html = "";
     order.forEach((k, i) => {
       const n = i + 1;
@@ -94,7 +95,26 @@
   const rubricOptions = sel => RUBRIC_NAMES.map(r => `<option value="${esc(r)}" ${r === sel ? "selected" : ""}>${esc(rubricName(r))}</option>`).join("");
   const langOptions = sel => Object.entries(LANGS).map(([k, v]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${v}</option>`).join("");
 
+  function offerGate() {
+    const O = offerT();
+    $("#view").innerHTML = `<div class="panel of-gate"><span class="kicker"><i></i>${esc(O.title)}</span><h2>${esc(O.gateT)}</h2><p class="muted">${esc(O.gateP)}</p>
+      <div class="of-short">${O.short.map(([h, p], i) => `<div class="of-card"><span class="mono">0${i + 1}</span><b>${esc(h)}</b><p>${esc(p)}</p></div>`).join("")}</div>
+      <details class="of-details"><summary>${esc(O.full)}</summary><div class="of-body">${O.body}</div></details>
+      <label class="of-check"><input type="checkbox" id="ofOk"><span>${esc(O.agree)}</span></label>
+      <button class="btn red magnetic" id="ofBtn" disabled>${esc(O.accept)} ${ICON.arrow}</button></div>`;
+    $("#ofOk").onchange = e => { $("#ofBtn").disabled = !e.target.checked; };
+    $("#ofBtn").onclick = async () => {
+      $("#ofBtn").disabled = true;
+      const { error } = await sb.from("profiles").update({ offer_accepted_at: new Date().toISOString(), offer_version: OFFER_VERSION }).eq("id", ME.user.id);
+      if (error) { $("#ofBtn").disabled = false; return toast(error.message); }
+      await loadMe(); Object.assign(P, ME.profile || {});
+      toast(O.accepted); form();
+    };
+    bindFx($("#view"));
+  }
+
   function form() {
+    if (!P.offer_accepted_at || P.offer_version !== OFFER_VERSION) return offerGate();
     const draft = store.get("lawart-draft", null);
     const d = draft || {};
     $("#view").innerHTML = `<div class="panel"><h2>${t("cb.newTitle")}</h2><p class="muted">${t("cb.newHint")}</p>
@@ -115,6 +135,7 @@
         <label style="display:flex;gap:10px;align-items:flex-start;font-weight:500;margin-top:20px"><input type="checkbox" required style="margin-top:4px"> ${t("cb.fConfirm")}</label>
         <div id="nmsg"></div>
         <div class="actions"><button class="btn red magnetic" id="send">${t("cb.send")} ${ICON.arrow}</button><span class="hint" style="align-self:center">✎ ${t("cb.draftSaved")}</span></div>
+        <p class="hint of-note">${esc(offerT().formNote)} <a href="offer.html" target="_blank" rel="noopener">${esc(offerT().formLink)}</a>.</p>
       </form></div>`;
     const dz = $("#dz"), inp = $("#pdf"), f = $("#nf");
     let pages = 0;
@@ -171,6 +192,7 @@
       <div class="detail-head"><h2 style="max-width:640px">${esc(a.title)}</h2>${badge(a.status)}</div>
       ${stepper(a.status)}
       <p class="muted">${t("cb.h." + a.status)}</p>
+      ${a.status === "accepted" && a.paid ? `<div class="note ok">${t("cb.paid")}</div>` : ""}
       ${a.admin_note ? `<div class="note"><b>${t("cb.note")}:</b><br>${esc(a.admin_note)}</div>` : ""}
       <div class="meta-grid"><div><small>${t("cb.mRubric")}</small>${esc(rubricName(a.category))}</div><div><small>${t("cb.mSubmitted")}</small>${fmtDate(a.created_at)}</div><div><small>${a.published_at ? t("cb.mPublished") : t("cb.mUpdated")}</small>${fmtDate(a.published_at || a.updated_at)}</div></div>
       <div class="actions">

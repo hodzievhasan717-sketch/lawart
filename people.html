@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Авторы журнала — Lawart</title>
+<meta name="description" content="Lawart.uz — электронный научный журнал юридических статей Узбекистана. Научные статьи по праву в PDF, публикация статей для студентов, магистрантов и юристов. Huquqiy ilmiy maqolalar jurnali.">
+<meta name="keywords" content="Lawart, юридический журнал, научные статьи по праву, публикация статей Узбекистан, право Узбекистана, huquqiy maqolalar, ilmiy jurnal, ТГЮУ">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta property="og:image" content="https://lawart.uz/assets/og.png">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:title" content="Авторы журнала — Lawart">
+<meta property="og:description" content="Научный журнал, где право становится искусством аргумента.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Lawart">
+<meta name="theme-color" content="#0b0c10">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>try{var th=localStorage.getItem('lawart-theme');if(th)document.documentElement.dataset.theme=th;var lg=localStorage.getItem('lawart-lang');if(lg)document.documentElement.lang=lg}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://xgwzpygoewtfeexraats.supabase.co">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=20261120f">
+</head>
+<body>
+<main>
+  <section class="page-hero night"><div class="wrap"><span class="kicker"><i></i><span data-t="pl.kicker"></span></span><h1 data-t="pl.title"></h1><p class="lead" data-t="pl.lead"></p>
+    <div class="pl-search"><input id="plq" data-tp="pl.search" autocomplete="off"></div></div><div class="ph-mark">§</div></section>
+  <div class="wrap pl-wrap">
+    <div class="au-grid" id="plGrid"></div>
+    <div class="panel pl-cta reveal"><div><h3 data-t="pl.ctaT"></h3><p class="muted" data-t="pl.ctaP"></p></div><a class="btn red" href="cabinet.html#profile" data-t="pl.ctaB"></a></div>
+  </div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/key.js"></script>
+<script src="assets/config.js?v=20261120f"></script>
+<script src="assets/i18n.js?v=20261120f"></script>
+<script src="assets/offer.js?v=20261120f"></script>
+<script src="assets/app.js?v=20261120f"></script>
+<script>(async () => {
+  await boot("people", { overlay: true });
+  const { data } = await sb.rpc("public_authors");
+  const all = data || [];
+  const paint = () => {
+    const q = norm($("#plq").value);
+    const list = all.filter(p => !q || norm([p.full_name, p.specialization, p.organization, p.degree].join(" ")).includes(q));
+    $("#plGrid").innerHTML = list.length ? list.map(p => `<a class="au-tile tilt" href="profile.html?id=${p.id}">${avatarHTML(p, "xl")}<b>${esc(p.full_name)}</b><span>${esc(p.specialization || "")}</span><span>${esc(p.organization || "")}</span><small class="mono">${num(p.published)} ${tn("stat.articles", p.published)}</small><span class="glare"></span></a>`).join("")
+      : `<div class="empty-state" style="grid-column:1/-1"><b>${t(all.length ? "pl.none" : "pl.empty")}</b></div>`;
+    bindFx($("#plGrid"));
+  };
+  $("#plq").oninput = debounce(paint, 120); paint(); reveal();
+})();</script>
+</body>
+</html>

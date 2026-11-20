@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://xgwzpygoewtfeexraats.supabase.co">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/style.css?v=20261120f">
+<link rel="stylesheet" href="assets/style.css?v=20261120g">
 </head>
 <body>
 <main id="pp">
@@ -27,10 +27,10 @@
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/key.js"></script>
-<script src="assets/config.js?v=20261120f"></script>
-<script src="assets/i18n.js?v=20261120f"></script>
-<script src="assets/offer.js?v=20261120f"></script>
-<script src="assets/app.js?v=20261120f"></script>
+<script src="assets/config.js?v=20261120g"></script>
+<script src="assets/i18n.js?v=20261120g"></script>
+<script src="assets/offer.js?v=20261120g"></script>
+<script src="assets/app.js?v=20261120g"></script>
 <script>
 (async () => {
   await boot("people", { overlay: true });
@@ -75,6 +75,7 @@
       <div class="panel reveal"><h2>${t("pp.articles")}</h2><div id="ppArts" class="pp-arts">${t("c.loading")}</div></div>
     </div>
     <aside class="pp-side">
+      <div class="side-card reveal pp-facts"><h4>${t("pp.facts")}</h4><dl>${[[t("pr.spec"), p.specialization], [t("cb.pDegree"), p.degree], [t("cb.pPosition"), p.position], [t("cb.pOrg"), p.organization], [t("pr.city"), p.city]].filter(x => x[1]).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl></div>
       <div class="side-card reveal"><h4>${t("pp.contacts")}</h4>${contacts || `<p class="muted small">${t("pp.noContacts")}</p>`}</div>
       ${p.orcid ? `<div class="side-card reveal"><h4>ORCID</h4><a class="link" href="https://orcid.org/${esc(p.orcid)}" target="_blank" rel="noopener">${esc(p.orcid)}</a></div>` : ""}
       <div class="side-card reveal"><h4>${t("pp.share")}</h4><button class="btn ghost sm" id="ppShare">${t("pp.copyLink")}</button></div>

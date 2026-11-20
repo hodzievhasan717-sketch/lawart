@@ -58,29 +58,34 @@ function shapes(n) {
   return [sphere(n), section, scales, lex, book(n)];
 }
 
-// раскрытая книга: страницы изогнуты от корешка, по ним идут строки
-const PW = 1.55, PH = 1.05;
-const curve = x => .32 * Math.sqrt(Math.min(1, Math.abs(x) / PW)) - .06 * (Math.abs(x) / PW);
+// раскрытая книга: две изогнутые страницы с рамкой, строками текста и корешком
+const PW = 1.18, PH = .98;
+const curve = x => .26 * Math.sqrt(Math.min(1, Math.abs(x) / PW)) - .05 * (Math.abs(x) / PW);
 function pagePoint(side) {
-  const ax = .04 + Math.random() * (PW - .04);
-  let y;
-  if (Math.random() < .72) {
-    const rows = 15, r = Math.floor(Math.random() * rows);
-    y = PH - .14 - r * ((2 * PH - .28) / (rows - 1)) + (Math.random() - .5) * .018;
-    if (ax > PW - .1 || ax < .14) y = (Math.random() * 2 - 1) * PH;
-  } else y = (Math.random() * 2 - 1) * PH;
+  const r = Math.random();
+  let ax, y;
+  if (r < .16) { // рамка страницы
+    const e = Math.random();
+    if (e < .5) { ax = .03 + Math.random() * (PW - .03); y = (Math.random() < .5 ? -1 : 1) * PH; }
+    else { ax = PW; y = (Math.random() * 2 - 1) * PH; }
+  } else if (r < .86) { // строки текста
+    const rows = 13, k = Math.floor(Math.random() * rows);
+    const len = k === 0 ? .5 : k % 5 === 4 ? .62 : .9;
+    ax = .14 + Math.random() * (PW - .28) * len;
+    y = PH - .2 - k * ((2 * PH - .4) / (rows - 1)) + (Math.random() - .5) * .012;
+  } else { ax = .03 + Math.random() * (PW - .03); y = (Math.random() * 2 - 1) * PH; }
   const x = side * ax;
-  return [x, y, curve(x) + (Math.random() - .5) * .015];
+  return [x, y, curve(x) + (Math.random() - .5) * .01];
 }
 function book(n) {
   const out = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) {
     let x, y, z;
     const r = Math.random();
-    if (r < .06) { // корешок и обрез страниц
-      const side = Math.random() < .5 ? -1 : 1;
-      x = side * (PW + Math.random() * .05); y = (Math.random() * 2 - 1) * PH; z = curve(x) - Math.random() * .16;
-    } else if (r < .09) { x = (Math.random() - .5) * .05; y = (Math.random() * 2 - 1) * PH; z = -.05 - Math.random() * .08; }
+    if (r < .07) { // обрез страниц: несколько слоев под страницей
+      const side = Math.random() < .5 ? -1 : 1, d = Math.random() * .12;
+      x = side * (PW - d * .3); y = (Math.random() * 2 - 1) * PH; z = curve(x) - d;
+    } else if (r < .1) { x = (Math.random() - .5) * .03; y = (Math.random() * 2 - 1) * (PH + .03); z = -.02 - Math.random() * .1; }
     else [x, y, z] = pagePoint(i % 2 ? 1 : -1);
     out[i * 3] = x; out[i * 3 + 1] = y; out[i * 3 + 2] = z;
   }
@@ -162,19 +167,19 @@ export function initHero(canvas, opts = {}) {
 
   // лист, который перелистывается в режиме книги
   const BOOK = targets.length - 1;
-  const FN = mobile ? 700 : 1500;
+  const FN = mobile ? 900 : 2000;
   const sheetBase = new Float32Array(FN * 3), sheetPos = new Float32Array(FN * 3);
   for (let i = 0; i < FN; i++) { const q = pagePoint(1); sheetBase.set(q, i * 3); sheetPos.set(q, i * 3); }
   const shgeo = new THREE.BufferGeometry();
   shgeo.setAttribute("position", new THREE.BufferAttribute(sheetPos, 3));
-  const shmat = new THREE.PointsMaterial({ size: mobile ? .05 : .042, map: tex, color: new THREE.Color("#f4e2b4"), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 });
+  const shmat = new THREE.PointsMaterial({ size: mobile ? .06 : .05, map: tex, color: new THREE.Color("#fff3d6"), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 });
   const sheet = new THREE.Points(shgeo, shmat);
   pts.add(sheet);
   let flipT = -1, flipQueue = 0;
   function flipPage() { if (flipT < 0) flipT = 0; else flipQueue = Math.min(flipQueue + 1, 3); }
   function updateSheet(dt) {
     if (flipT < 0) { shmat.opacity += (0 - shmat.opacity) * .2; return; }
-    flipT += dt / .95;
+    flipT += dt / 1.15;
     const t = Math.min(1, flipT), e = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     const th = e * Math.PI;
     for (let i = 0; i < FN; i++) {
@@ -182,7 +187,7 @@ export function initHero(canvas, opts = {}) {
       const a = th + .5 * Math.sin(th) * f; // внешний край чуть отстает: лист изгибается
       sheetPos[j] = x * Math.cos(a);
       sheetPos[j + 1] = sheetBase[j + 1];
-      sheetPos[j + 2] = sheetBase[j + 2] + x * Math.sin(a) * .9;
+      sheetPos[j + 2] = sheetBase[j + 2] * Math.cos(th) + x * Math.sin(a);
     }
     shgeo.attributes.position.needsUpdate = true;
     shmat.opacity = t < .08 ? t / .08 : t > .9 ? (1 - t) / .1 : 1;
@@ -226,11 +231,11 @@ export function initHero(canvas, opts = {}) {
     if (!reduced && shapeT > hold && idle > 14) { setTarget(shapeIdx + 1); if (opts.onShape) opts.onShape(shapeIdx); }
     const tgt = targets[shapeIdx];
     const p = geo.attributes.position.array;
-    const k = Math.min(1, dt * 60);
+    const k = Math.min(1, dt * 60), wob = shapeIdx === BOOK ? .25 : 1;
     for (let i = 0; i < N; i++) {
-      const j = i * 3, s = speed[i] * k, w = Math.sin(time * 1.3 + phase[i]) * .012;
+      const j = i * 3, s = speed[i] * k, w = Math.sin(time * 1.3 + phase[i]) * .012 * wob;
       p[j] += (tgt[j] - p[j]) * s + w;
-      p[j + 1] += (tgt[j + 1] - p[j + 1]) * s + Math.cos(time * 1.1 + phase[i]) * .01;
+      p[j + 1] += (tgt[j + 1] - p[j + 1]) * s + Math.cos(time * 1.1 + phase[i]) * .01 * wob;
       p[j + 2] += (tgt[j + 2] - p[j + 2]) * s;
     }
     geo.attributes.position.needsUpdate = true;
@@ -238,7 +243,7 @@ export function initHero(canvas, opts = {}) {
     const isBook = shapeIdx === BOOK;
     const spin = shapeIdx === 0 ? time * .25 : isBook ? Math.sin(time * .3) * .12 : Math.sin(time * .35) * .32;
     pts.rotation.y = spin + mouse.x * .35;
-    const tilt = isBook ? -.62 : 0;
+    const tilt = isBook ? -.38 : 0;
     pts.rotation.x += (tilt + mouse.y * .18 - pts.rotation.x) * .06;
     orbit.rotation.z = time * .08;
     dust.rotation.y = time * .01 + mouse.x * .05;

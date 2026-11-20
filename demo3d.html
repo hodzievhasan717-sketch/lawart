@@ -25,22 +25,31 @@
   <p>Демо нового фона: галактика из звезд. Нажмите на галактику, и звезды соберутся в §, весы Фемиды, LEX или книгу. Двигайте мышью, чтобы повернуть.</p>
   <div class="row" id="btns"></div>
 </div>
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from "three";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
 const mobile = matchMedia("(max-width: 760px)").matches;
-const N = mobile ? 16000 : 42000;            // звезды галактики (они же собираются в фигуры)
-const BG = mobile ? 2500 : 6000;             // дальний звездный фон
+const N = mobile ? 22000 : 64000;            // звезды галактики (они же собираются в фигуры)
+const BG = mobile ? 4000 : 12000;             // дальний звездный фон
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
-renderer.setClearColor(0x05060a);
+renderer.setClearColor(0x03040a);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
 document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, .1, 200);
 camera.position.set(0, 0, 9);
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), mobile ? .8 : 1.05, .65, .12);
+composer.addPass(bloom); composer.addPass(new OutputPass());
 
 // ---------- шейдер звезд: мягкое свечение, мерцание, размер по глубине ----------
 const starVS = `
@@ -75,27 +84,66 @@ const C = {
   blue: new THREE.Color("#8fb4ff"), violet: new THREE.Color("#b48cff"), ox: new THREE.Color("#d24a5e")
 };
 
-// ---------- галактика ----------
+// ---------- галактика: балдж, спиральные рукава, области звездообразования ----------
+const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283 * v); };
+const R = 5.6, ARMS = 2, WIND = 2.6;
+const armAngle = r => Math.log(1 + r * 1.6) * WIND;
+const KNOTS = Array.from({ length: 70 }, () => { const r = .9 + Math.random() * (R - 1.4), a = ((Math.random() * ARMS) | 0) * Math.PI + armAngle(r) + gauss() * .08; return [Math.cos(a) * r, Math.sin(a) * r]; });
 function galaxy(n) {
-  const pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
-  const arms = 4, R = 5.2;
+  const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), kind = new Uint8Array(n);
   const c = new THREE.Color();
+  const HII = new THREE.Color("#ff6f91"), YOUNG = new THREE.Color("#9cc4ff"), OLD = new THREE.Color("#ffd9a0"), WHITE = new THREE.Color("#fff6e8");
   for (let i = 0; i < n; i++) {
-    const r = Math.pow(Math.random(), 1.35) * R;
-    const arm = (i % arms) / arms * Math.PI * 2;
-    const spin = r * 1.05;
-    const spread = (1 - r / R) * .38 + .07;
-    const rx = Math.pow(Math.random(), 3) * (Math.random() < .5 ? 1 : -1) * spread * r * .9;
-    const ry = Math.pow(Math.random(), 3) * (Math.random() < .5 ? 1 : -1) * (.32 - r / R * .22);
-    const rz = Math.pow(Math.random(), 3) * (Math.random() < .5 ? 1 : -1) * spread * r * .9;
-    pos[i * 3] = Math.cos(arm + spin) * r + rx;
-    pos[i * 3 + 1] = ry;
-    pos[i * 3 + 2] = Math.sin(arm + spin) * r + rz;
-    const t = r / R;
-    c.copy(C.core).lerp(C.gold, Math.min(1, t * 2.2));
-    if (t > .45) c.lerp(Math.random() < .55 ? C.blue : C.violet, (t - .45) * 1.4);
-    if (Math.random() < .015) c.copy(C.ox);
-    col.set([c.r, c.g, c.b], i * 3);
+    const roll = Math.random();
+    let x, y, z;
+    if (roll < .2) { // балдж: плотное теплое ядро
+      const r = Math.abs(gauss()) * .55;
+      const th = Math.random() * 6.283, ph = Math.acos(2 * Math.random() - 1);
+      x = r * Math.sin(ph) * Math.cos(th) * 1.25; y = r * Math.cos(ph) * .55; z = r * Math.sin(ph) * Math.sin(th) * 1.25;
+      c.copy(OLD).lerp(WHITE, Math.random() * .5); kind[i] = 1;
+    } else if (roll < .26) { // области звездообразования (розовые узлы)
+      const k = KNOTS[(Math.random() * KNOTS.length) | 0], s2 = .09 + Math.random() * .08;
+      x = k[0] + gauss() * s2; z = k[1] + gauss() * s2; y = gauss() * .04;
+      c.copy(Math.random() < .55 ? HII : YOUNG); kind[i] = 2;
+    } else if (roll < .3) { // гало: редкие старые звезды
+      const r = 1 + Math.random() * 6.5, th = Math.random() * 6.283, ph = Math.acos(2 * Math.random() - 1);
+      x = r * Math.sin(ph) * Math.cos(th); y = r * Math.cos(ph) * .6; z = r * Math.sin(ph) * Math.sin(th);
+      c.copy(OLD).lerp(WHITE, .5); kind[i] = 3;
+    } else { // рукава
+      const r = .35 + Math.pow(Math.random(), 1.25) * (R - .35);
+      const arm = ((Math.random() * ARMS) | 0) * Math.PI;
+      const w = (.12 + r * .07) * gauss();
+      const a = arm + armAngle(r) + w;
+      const rr = r + gauss() * .12;
+      x = Math.cos(a) * rr; z = Math.sin(a) * rr; y = gauss() * (.09 - r * .008);
+      const t = r / R;
+      c.copy(OLD).lerp(WHITE, Math.min(1, t * 1.6));
+      if (t > .3) c.lerp(YOUNG, Math.min(1, (t - .3) * 1.5) * (Math.abs(w) < .08 ? 1 : .45));
+      if (Math.random() < .02) c.copy(HII);
+      kind[i] = 0;
+    }
+    pos.set([x, y, z], i * 3);
+    const b = .75 + Math.random() * .5; col.set([c.r * b, c.g * b, c.b * b], i * 3);
+  }
+  return { pos, col, kind };
+}
+function dust(n) { // пылевые полосы на внутренней стороне рукавов
+  const pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const r = .7 + Math.pow(Math.random(), 1.1) * (R - 1);
+    const a = ((Math.random() * ARMS) | 0) * Math.PI + armAngle(r) - .16 + gauss() * .06;
+    pos.set([Math.cos(a) * r + gauss() * .05, gauss() * .03, Math.sin(a) * r + gauss() * .05], i * 3);
+  }
+  return pos;
+}
+function gas(n) { // мягкие облака газа вдоль рукавов
+  const pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
+  const cs = [new THREE.Color("#5a7dff"), new THREE.Color("#ff5d8a"), new THREE.Color("#8a5cff"), new THREE.Color("#ffb46b")];
+  for (let i = 0; i < n; i++) {
+    const r = .4 + Math.pow(Math.random(), 1.2) * (R - .6);
+    const a = ((Math.random() * ARMS) | 0) * Math.PI + armAngle(r) + gauss() * .18;
+    pos.set([Math.cos(a) * r, gauss() * .05, Math.sin(a) * r], i * 3);
+    const c = r < 1.2 ? cs[3] : cs[(Math.random() * 3) | 0]; col.set([c.r, c.g, c.b], i * 3);
   }
   return { pos, col };
 }
@@ -150,7 +198,7 @@ function shapeBook(n) {
 
 const gal = galaxy(N);
 const SHAPES = [
-  { name: "Галактика", pos: gal.pos, tilt: [1.05, 0], spin: .045 },
+  { name: "Галактика", pos: gal.pos, tilt: [1.0, 0], spin: .03 },
   { name: "§ — знак параграфа", pos: shapeSection(N), tilt: [0, 0], spin: 0 },
   { name: "Весы Фемиды", pos: shapeScales(N), tilt: [0, 0], spin: 0 },
   { name: "LEX — закон", pos: shapeLex(N), tilt: [0, 0], spin: 0 },
@@ -161,7 +209,7 @@ const SHAPES = [
 const geo = new THREE.BufferGeometry();
 const cur = new Float32Array(gal.pos);
 const sizes = new Float32Array(N), seeds = new Float32Array(N), speed = new Float32Array(N);
-for (let i = 0; i < N; i++) { sizes[i] = Math.random() < .02 ? 3.2 + Math.random() * 2.5 : .7 + Math.pow(Math.random(), 3) * 2.2; seeds[i] = Math.random(); speed[i] = .025 + Math.random() * .05; }
+for (let i = 0; i < N; i++) { sizes[i] = (gal.kind[i] === 2 ? 1.3 : gal.kind[i] === 1 ? .9 : .75) * (Math.random() < .015 ? 3 + Math.random() * 2.5 : .6 + Math.pow(Math.random(), 3) * 2.2); seeds[i] = Math.random(); speed[i] = .025 + Math.random() * .05; }
 geo.setAttribute("position", new THREE.BufferAttribute(cur, 3));
 geo.setAttribute("color", new THREE.BufferAttribute(gal.col, 3));
 geo.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
@@ -170,6 +218,45 @@ const mat = mkMat();
 const stars = new THREE.Points(geo, mat);
 const group = new THREE.Group(); group.add(stars); scene.add(group);
 
+// газ: крупные мягкие точки с обычным смешиванием по яркости
+const gasD = gas(mobile ? 500 : 1400);
+const gasGeo = new THREE.BufferGeometry();
+gasGeo.setAttribute("position", new THREE.BufferAttribute(gasD.pos, 3));
+gasGeo.setAttribute("color", new THREE.BufferAttribute(gasD.col, 3));
+const gasMat = new THREE.ShaderMaterial({
+  uniforms: { uO: { value: 1 }, uPR: { value: renderer.getPixelRatio() } },
+  vertexShader: `attribute vec3 color; varying vec3 vC; uniform float uPR; void main(){ vC=color; vec4 mv=modelViewMatrix*vec4(position,1.0); gl_PointSize=uPR*900.0/-mv.z; gl_Position=projectionMatrix*mv; }`,
+  fragmentShader: `varying vec3 vC; uniform float uO; void main(){ float d=length(gl_PointCoord-0.5); float a=pow(smoothstep(0.5,0.0,d),2.2)*0.07*uO; gl_FragColor=vec4(vC,a); }`,
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+});
+const gasPts = new THREE.Points(gasGeo, gasMat); group.add(gasPts);
+
+// пыль: темные полосы поверх звезд
+const dustGeo = new THREE.BufferGeometry(); dustGeo.setAttribute("position", new THREE.BufferAttribute(dust(mobile ? 3000 : 9000), 3));
+const dustMat = new THREE.ShaderMaterial({
+  uniforms: { uO: { value: 1 }, uPR: { value: renderer.getPixelRatio() } },
+  vertexShader: `uniform float uPR; void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0); gl_PointSize=uPR*150.0/-mv.z; gl_Position=projectionMatrix*mv; }`,
+  fragmentShader: `uniform float uO; void main(){ float d=length(gl_PointCoord-0.5); float a=smoothstep(0.5,0.0,d)*0.16*uO; gl_FragColor=vec4(0.03,0.015,0.01,a); }`,
+  transparent: true, depthWrite: false, blending: THREE.NormalBlending
+});
+const dustPts = new THREE.Points(dustGeo, dustMat); dustPts.renderOrder = 2; group.add(dustPts);
+
+// яркие звезды с лучами
+function flareTex() {
+  const c = document.createElement("canvas"); c.width = c.height = 256; const g = c.getContext("2d");
+  const gr = g.createRadialGradient(128, 128, 0, 128, 128, 60); gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(.25, "rgba(255,240,210,.55)"); gr.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+  g.globalCompositeOperation = "lighter";
+  for (const [w, h] of [[256, 3], [3, 256]]) { const l = g.createLinearGradient(128 - w / 2, 128 - h / 2, 128 + w / 2, 128 + h / 2); l.addColorStop(0, "rgba(255,255,255,0)"); l.addColorStop(.5, "rgba(255,245,225,.9)"); l.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = l; g.fillRect(128 - w / 2, 128 - h / 2, w, h); }
+  return new THREE.CanvasTexture(c);
+}
+const FT = flareTex(), flares = [];
+for (let i = 0; i < (mobile ? 12 : 26); i++) {
+  const k = (Math.random() * N) | 0;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: FT, color: new THREE.Color().setHSL(Math.random() < .5 ? .6 : .1, .5, .85), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+  sp.userData = { k, s: .25 + Math.random() * .35, ph: Math.random() * 6 }; group.add(sp); flares.push(sp);
+}
+
 // ---------- ядро и туманности (мягкие светящиеся спрайты) ----------
 function glowTex(inner, outer) {
   const c = document.createElement("canvas"); c.width = c.height = 256; const g = c.getContext("2d");
@@ -177,7 +264,7 @@ function glowTex(inner, outer) {
   g.fillStyle = gr; g.fillRect(0, 0, 256, 256); return new THREE.CanvasTexture(c);
 }
 const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex("rgba(255,236,200,.95)", "rgba(227,170,90,.25)"), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
-core.scale.set(4.2, 4.2, 1); group.add(core);
+core.scale.set(3.2, 3.2, 1); group.add(core);
 const nebulae = [];
 [["rgba(120,90,255,.35)", "rgba(80,60,200,.08)", -3.5, .6, -2], ["rgba(70,140,255,.30)", "rgba(40,90,200,.07)", 3.8, -.8, -3], ["rgba(210,74,94,.22)", "rgba(140,30,45,.05)", .5, 1.6, -4]].forEach(([a, b, x, y, z]) => {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(a, b), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: .9 }));
@@ -188,7 +275,7 @@ const nebulae = [];
 {
   const g = new THREE.BufferGeometry(), p = new Float32Array(BG * 3), c = new Float32Array(BG * 3), s = new Float32Array(BG), sd = new Float32Array(BG);
   for (let i = 0; i < BG; i++) {
-    const r = 30 + Math.random() * 60, th = Math.random() * 6.283, ph = Math.acos(2 * Math.random() - 1);
+    const r = 30 + Math.random() * 60, th = Math.random() * 6.283, ph = Math.random() < .55 ? Math.PI / 2 + .55 + gauss() * .12 : Math.acos(2 * Math.random() - 1);
     p.set([r * Math.sin(ph) * Math.cos(th), r * Math.sin(ph) * Math.sin(th), r * Math.cos(ph)], i * 3);
     const col = Math.random() < .2 ? C.blue : Math.random() < .2 ? C.gold : C.cream; c.set([col.r, col.g, col.b], i * 3);
     s[i] = 4 + Math.random() * 8; sd[i] = Math.random();
@@ -223,7 +310,7 @@ renderer.domElement.addEventListener("click", () => go(idx + 1));
 
 const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
 addEventListener("pointermove", e => { mouse.tx = e.clientX / innerWidth - .5; mouse.ty = e.clientY / innerHeight - .5; });
-addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); });
 if (innerWidth > 900) group.position.x = 2.2;
 
 const clock = new THREE.Clock(); let spinA = 0;
@@ -246,7 +333,11 @@ function frame() {
   const baseY = S.spin ? spinA : Math.sin(t * .35) * .25;
   group.rotation.y += (baseY + mouse.x * .6 - group.rotation.y) * .08;
   group.rotation.x += (S.tilt[0] + mouse.y * .35 - group.rotation.x) * .05;
-  core.material.opacity += ((idx === 0 ? 1 : .25) - core.material.opacity) * .05;
+  const gOn = idx === 0 ? 1 : 0;
+  core.material.opacity += ((idx === 0 ? 1 : .2) - core.material.opacity) * .05;
+  gasMat.uniforms.uO.value += (gOn - gasMat.uniforms.uO.value) * .06;
+  dustMat.uniforms.uO.value += (gOn - dustMat.uniforms.uO.value) * .06;
+  for (const f of flares) { const j = f.userData.k * 3; f.position.set(p[j], p[j + 1], p[j + 2]); const sc = f.userData.s * (.8 + .25 * Math.sin(t * 1.7 + f.userData.ph)); f.scale.set(sc, sc, 1); f.material.opacity = .35 + .65 * gOn; }
   nebulae.forEach((n, k) => { n.material.rotation = t * .02 * (k % 2 ? 1 : -1); });
   bg.rotation.y = t * .004;
   if (Math.random() < .006) meteor();
@@ -257,7 +348,7 @@ function frame() {
   }
   camera.position.x += (mouse.x * .6 - camera.position.x) * .03; camera.position.y += (-mouse.y * .4 - camera.position.y) * .03;
   camera.lookAt(0, 0, 0);
-  renderer.render(scene, camera);
+  composer.render();
   requestAnimationFrame(frame);
 }
 frame();

@@ -336,12 +336,12 @@ function paintUser() {
   const home = ME.profile?.is_admin ? "admin.html" : "cabinet.html";
   box.innerHTML = `<div class="bell-wrap"><button class="icon-btn bell" id="bellBtn" type="button" aria-label="${t("notif.title")}">${ICON.bell}<span class="dot hidden" id="bellDot"></span></button><div class="bell-pop hidden" id="bellPop"></div></div>
     ${ME.profile?.is_admin ? "" : `<a class="btn red sm magnetic hide-s" href="cabinet.html#new">${t("h.publish")}</a>`}
-    <a class="userchip" href="${home}" title="${esc(name)}"><span class="avatar">${esc(initials(name))}</span></a>`;
+    <a class="userchip" href="${home}" title="${esc(name)}">${avatarHTML({ full_name: name, photo_url: ME.profile?.photo_url })}</a>`;
   $("#bellBtn").onclick = e => { e.stopPropagation(); $("#bellPop").classList.toggle("hidden"); };
   document.addEventListener("click", e => { if (!e.target.closest(".bell-wrap")) $("#bellPop")?.classList.add("hidden"); });
   pollBell(); setInterval(pollBell, 15000);
 }
-const NOTIF_MAP = [[/^Новая заявка/, "n.newSub"], [/^Автор прислал/, "n.resub"], [/^Ваша статья опубликована/, "n.published"], [/^Редакция просит/, "n.revision"], [/^Редакция отклонила/, "n.rejected"], [/^Автор ответил/, "n.authorReplied"], [/^Вопрос редакции/, "n.editorAsked"]];
+const NOTIF_MAP = [[/^Новое сообщение от редакции/, "n.dm"], [/^Личное сообщение от/, "n.dmUser"], [/^Новая заявка/, "n.newSub"], [/^Автор прислал/, "n.resub"], [/^Ваша статья опубликована/, "n.published"], [/^Редакция просит/, "n.revision"], [/^Редакция отклонила/, "n.rejected"], [/^Автор ответил/, "n.authorReplied"], [/^Вопрос редакции/, "n.editorAsked"]];
 function notifText(s) {
   if (LANG === "ru") return s;
   const m = String(s).match(/«(.*)»/);
@@ -743,14 +743,16 @@ const fileSize = b => b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(
 
 /* ---------- чат по статье ---------- */
 function mountChat(box, article, opts = {}) {
-  const isAuthor = article.author_id === ME.user.id;
+  const DM = opts.dm || null; // личная переписка: id пользователя
+  const TB = DM ? "dm" : "messages", KEY = DM ? "user_id" : "article_id", VAL = DM || article.id;
+  const isAuthor = DM ? DM === ME.user.id : article.author_id === ME.user.id;
   const peer = opts.peer || (isAuthor ? t("ch.editorial") : t("ch.author"));
   box.innerHTML = `<div class="chat">
-    <div class="chat-head"><span class="avatar sm">${esc(initials(peer))}</span><span class="ch-who"><b>${esc(peer)}</b><small>${isAuthor ? t("ch.aboutYour") : t("ch.thread", { n: pad(article.id) })}</small></span><span class="live"><i></i>${t("ch.live")}</span></div>
+    <div class="chat-head"><span class="avatar sm">${esc(initials(peer))}</span><span class="ch-who"><b>${esc(peer)}</b><small>${DM ? t("dm.sub") : isAuthor ? t("ch.aboutYour") : t("ch.thread", { n: pad(article.id) })}</small></span><span class="live"><i></i>${t("ch.live")}</span></div>
     <div class="chat-body" id="chatBody"><div class="chat-empty">${t("c.loading")}</div></div>
     <form class="chat-form" id="chatForm">
       <input type="file" id="chatFile" class="hidden">
-      <button type="button" class="attach" title="${t("ch.attach")}" aria-label="${t("ch.attach")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/></svg></button>
+      <button type="button" class="attach${DM ? " hidden" : ""}" title="${t("ch.attach")}" aria-label="${t("ch.attach")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/></svg></button>
       <div class="chat-input"><div class="att hidden" id="chatAtt"></div><textarea id="chatText" rows="1" placeholder="${esc(isAuthor ? t("ch.phAuthor") : t("ch.phAdmin"))}"></textarea></div>
       <button class="btn red send" aria-label="${t("ch.send")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg></button>
     </form>
@@ -768,13 +770,13 @@ function mountChat(box, article, opts = {}) {
     if (f) $("button", att).onclick = () => { fileIn.value = ""; fileIn.onchange(); };
   };
   async function load() {
-    const { data, error } = await sb.from("messages").select("*").eq("article_id", article.id).order("created_at");
+    const { data, error } = await sb.from(TB).select("*").eq(KEY, VAL).order("created_at");
     if (error) return;
     const sig = data.map(m => m.id + ":" + (m.read_at ? 1 : 0)).join(",");
     if (sig === lastSig) return;
     lastSig = sig;
     if (!data.length) {
-      body.innerHTML = `<div class="chat-empty"><span>${ICON.chat}</span>${isAuthor ? t("ch.emptyAuthor") : t("ch.emptyAdmin")}</div>`;
+      body.innerHTML = `<div class="chat-empty"><span>${ICON.chat}</span>${DM ? (isAuthor ? t("dm.emptyUser") : t("dm.emptyAdmin")) : isAuthor ? t("ch.emptyAuthor") : t("ch.emptyAdmin")}</div>`;
       return;
     }
     for (const m of data) if (m.file_path && !urls[m.file_path]) urls[m.file_path] = await signedUrl("chat", m.file_path, 3600 * 6);
@@ -789,12 +791,13 @@ function mountChat(box, article, opts = {}) {
     body.innerHTML = html;
     if (atBottom || !body.dataset.init) { body.scrollTop = body.scrollHeight; body.dataset.init = 1; }
     const unread = data.filter(m => m.sender_id !== ME.user.id && !m.read_at).map(m => m.id);
-    if (unread.length) await sb.from("messages").update({ read_at: new Date().toISOString() }).in("id", unread);
+    if (unread.length) await sb.from(TB).update({ read_at: new Date().toISOString() }).in("id", unread);
   }
   $("#chatForm", box).onsubmit = async e => {
     e.preventDefault();
     const text = ta.value.trim(), file = fileIn.files[0];
     if (!text && !file) return;
+    if (DM && !text) return;
     const btn = $(".send", box); btn.disabled = true;
     try {
       let file_path = null, file_name = null;
@@ -804,7 +807,8 @@ function mountChat(box, article, opts = {}) {
         const { error } = await sb.storage.from("chat").upload(file_path, file);
         if (error) throw error;
       }
-      const { error } = await sb.from("messages").insert({ article_id: article.id, sender_id: ME.user.id, body: text, file_path, file_name });
+      const { error } = DM ? await sb.from("dm").insert({ user_id: DM, sender_id: ME.user.id, body: text })
+        : await sb.from("messages").insert({ article_id: article.id, sender_id: ME.user.id, body: text, file_path, file_name });
       if (error) throw error;
       ta.value = ""; grow(); fileIn.value = ""; fileIn.onchange();
       await load(); body.scrollTop = body.scrollHeight;
@@ -817,4 +821,43 @@ function mountChat(box, article, opts = {}) {
   timer = setInterval(load, 4000);
   if (opts.focus) setTimeout(() => { ta.focus({ preventScroll: true }); box.scrollIntoView({ behavior: "smooth", block: "center" }); }, 350);
   return () => clearInterval(timer);
+}
+
+/* ---------- фото и профиль ---------- */
+function resizeImage(file, max = 1400, q = .84) {
+  return new Promise((res, rej) => {
+    if (!/^image\//.test(file.type)) return rej(new Error(t("pr.onlyImg")));
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => b ? res(b) : rej(new Error(t("pr.onlyImg"))), "image/jpeg", q);
+    };
+    img.onerror = () => rej(new Error(t("pr.onlyImg")));
+    img.src = url;
+  });
+}
+async function uploadPhoto(file, max) {
+  const blob = await resizeImage(file, max);
+  const path = `${ME.user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
+  const { error } = await sb.storage.from("avatars").upload(path, blob, { contentType: "image/jpeg" });
+  if (error) throw error;
+  return sb.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+}
+function avatarHTML(p, cls = "") {
+  return p && p.photo_url ? `<span class="avatar ph ${cls}" style="background-image:url('${esc(p.photo_url)}')"></span>`
+    : `<span class="avatar ${cls}">${esc(initials((p && p.full_name) || "?"))}</span>`;
+}
+function lightbox(urls, start = 0) {
+  let i = start;
+  const m = modal(`<div class="lbx"><img alt=""><button class="lbx-p" aria-label="←">‹</button><button class="lbx-n" aria-label="→">›</button><span class="lbx-c mono"></span></div>`);
+  m.el.classList.add("lbx-modal");
+  const show = () => { $("img", m.el).src = urls[i]; $(".lbx-c", m.el).textContent = (i + 1) + " / " + urls.length; };
+  $(".lbx-p", m.el).onclick = () => { i = (i - 1 + urls.length) % urls.length; show(); };
+  $(".lbx-n", m.el).onclick = () => { i = (i + 1) % urls.length; show(); };
+  if (urls.length < 2) { $(".lbx-p", m.el).remove(); $(".lbx-n", m.el).remove(); }
+  show();
 }

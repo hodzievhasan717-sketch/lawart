@@ -926,3 +926,28 @@ article.of-body{max-width:860px}
 .pl-cta{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
 .pl-cta h3{margin:0 0 4px;font:600 1.5rem var(--serif)}
 .pf-note{margin:0 0 18px}.pf-note a{color:inherit;font-weight:700}
+/* меню пользователя */
+.um-wrap{position:relative}
+button.userchip{background:none;border:0;padding:0;cursor:pointer;border-radius:50%;transition:transform .2s var(--ease)}
+button.userchip:hover{transform:scale(1.06)}
+button.userchip .avatar{box-shadow:0 0 0 2px var(--card),0 0 0 3px var(--gold2)}
+.um{position:absolute;right:0;top:calc(100% + 12px);width:300px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:20px;box-shadow:0 30px 70px -25px rgba(0,0,0,.45);padding:8px;z-index:120;animation:umIn .22s var(--ease)}
+@keyframes umIn{from{opacity:0;transform:translateY(-6px) scale(.98)}}
+.um a,.um button{display:flex;align-items:center;gap:12px;width:100%;padding:11px 12px;border-radius:12px;color:var(--ink);text-decoration:none;font:600 .9rem var(--sans);background:none;border:0;cursor:pointer;text-align:left}
+.um a:hover,.um button:hover{background:var(--card2)}
+.um svg{width:18px;height:18px;color:var(--gold);flex:none}
+.um .um-head{padding:12px;margin-bottom:6px;background:linear-gradient(135deg,var(--night,#0b0c10),#2a2218);color:#efe9dc;border-radius:14px}
+.um .um-head:hover{background:linear-gradient(135deg,#15161c,#3a2f1f)}
+.um-head span{display:grid;min-width:0}
+.um-head b{font:600 1.05rem/1.2 var(--serif);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.um-head small{opacity:.65;font-size:.75rem;overflow:hidden;text-overflow:ellipsis}
+.um-head em{font-style:normal;color:var(--gold2);font-size:.75rem;margin-top:4px}
+.um button{border-top:1px solid var(--line2);border-radius:0 0 12px 12px;margin-top:4px;color:var(--ox)}
+.um button svg{color:var(--ox)}
+.um{background:#fbf8f2;color:#16171d;--ink:#16171d;--card2:#f1ebdf;--line2:#e6dccb}
+[data-theme=dark] .um{background:#17181e;color:#efe9dc;--ink:#efe9dc;--card2:#22232b;--line2:#2c2d36}
+.um .um-head{color:#efe9dc}
+.pp-facts dl{display:grid;gap:10px;margin:0}
+.pp-facts dt{font:600 .66rem var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.pp-facts dd{margin:-6px 0 4px;font-weight:600}
+.pp-side{display:grid;gap:16px}

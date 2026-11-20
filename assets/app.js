@@ -51,6 +51,10 @@ const ICON = {
   search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
   sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
+  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>',
+  doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4M9 13h6M9 17h6"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>',
+  out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>',
   star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>',
   bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
   eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>',
@@ -336,9 +340,26 @@ function paintUser() {
   const home = ME.profile?.is_admin ? "admin.html" : "cabinet.html";
   box.innerHTML = `<div class="bell-wrap"><button class="icon-btn bell" id="bellBtn" type="button" aria-label="${t("notif.title")}">${ICON.bell}<span class="dot hidden" id="bellDot"></span></button><div class="bell-pop hidden" id="bellPop"></div></div>
     ${ME.profile?.is_admin ? "" : `<a class="btn red sm magnetic hide-s" href="cabinet.html#new">${t("h.publish")}</a>`}
-    <a class="userchip" href="${home}" title="${esc(name)}">${avatarHTML({ full_name: name, photo_url: ME.profile?.photo_url })}</a>`;
+    <div class="um-wrap"><button class="userchip" id="umBtn" type="button" aria-label="${esc(name)}">${avatarHTML({ full_name: name, photo_url: ME.profile?.photo_url })}</button>
+      <div class="um hidden" id="umPop">
+        <a class="um-head" href="profile.html?id=${ME.user.id}">${avatarHTML({ full_name: name, photo_url: ME.profile?.photo_url }, "lg")}<span><b>${esc(name)}</b><small>${esc(ME.user.email)}</small><em>${t("um.view")} →</em></span></a>
+        ${ME.profile?.is_admin ? `<a href="admin.html">${ICON.chat}<span>${t("um.admin")}</span></a>` : ""}
+        <a href="cabinet.html#profile">${ICON.user || "👤"}<span>${t("um.edit")}</span></a>
+        <a href="cabinet.html">${ICON.doc || "📄"}<span>${t("um.articles")}</span></a>
+        <a href="cabinet.html#new">${ICON.plus || "+"}<span>${t("h.publish")}</span></a>
+        <a href="cabinet.html#messages">${ICON.chat}<span>${t("dm.nav")}</span></a>
+        <a href="articles.html?saved=1">${ICON.star || "☆"}<span>${t("um.fav")}</span></a>
+        <button type="button" id="umOut">${ICON.out || "⎋"}<span>${t("um.out")}</span></button>
+      </div></div>`;
   $("#bellBtn").onclick = e => { e.stopPropagation(); $("#bellPop").classList.toggle("hidden"); };
   document.addEventListener("click", e => { if (!e.target.closest(".bell-wrap")) $("#bellPop")?.classList.add("hidden"); });
+  $("#umBtn").onclick = e => { e.stopPropagation(); $("#umPop").classList.toggle("hidden"); $("#bellPop")?.classList.add("hidden"); };
+  document.addEventListener("click", e => { if (!e.target.closest(".um-wrap")) $("#umPop")?.classList.add("hidden"); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") $("#umPop")?.classList.add("hidden"); });
+  $("#umOut").onclick = async () => { await sb.auth.signOut(); location.href = "index.html"; };
+  $$("#umPop a[href^='cabinet.html']").forEach(x => x.addEventListener("click", () => {
+    if (location.pathname.endsWith("cabinet.html")) setTimeout(() => dispatchEvent(new HashChangeEvent("hashchange")), 0);
+  }));
   pollBell(); setInterval(pollBell, 15000);
 }
 const NOTIF_MAP = [[/^Статья одобрена/, "n.accepted"], [/^Оплата получена/, "n.paid"], [/^Новое сообщение от редакции/, "n.dm"], [/^Личное сообщение от/, "n.dmUser"], [/^Новая заявка/, "n.newSub"], [/^Автор прислал/, "n.resub"], [/^Ваша статья опубликована/, "n.published"], [/^Редакция просит/, "n.revision"], [/^Редакция отклонила/, "n.rejected"], [/^Автор ответил/, "n.authorReplied"], [/^Вопрос редакции/, "n.editorAsked"]];

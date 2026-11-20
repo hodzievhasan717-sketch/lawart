@@ -650,7 +650,7 @@ async function boot(active, opts = {}) {
   if (!opts.noFooter) renderFooter();
   if (!opts.noBook) initBook();
   pageTransitions();
-  cursor();
+  // курсор: обычный системный
   toTop();
   sb.auth.onAuthStateChange(ev => { if (ev === "SIGNED_OUT") location.href = "index.html"; });
 }

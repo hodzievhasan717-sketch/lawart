@@ -25,9 +25,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://xgwzpygoewtfeexraats.supabase.co">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/style.css?v=20261120h">
+<link rel="stylesheet" href="assets/style.css?v=20261120i">
 </head>
 <body>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 <main>
   <section class="hero night spot" id="hero">
     <canvas id="hero3d" aria-hidden="true"></canvas>
@@ -170,10 +171,10 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","name":"Lawart","url":"https://lawart.uz/","logo":"https://lawart.uz/icon-512.png"},{"@type":"WebSite","name":"Lawart","alternateName":"Lawart.uz — научный журнал юридических статей","url":"https://lawart.uz/","inLanguage":["ru","uz","en"],"potentialAction":{"@type":"SearchAction","target":"https://lawart.uz/articles.html?q={q}","query-input":"required name=q"}},{"@type":"Periodical","name":"Lawart","url":"https://lawart.uz/","description":"Электронный научный журнал юридических статей","publisher":{"@type":"Organization","name":"Lawart","url":"https://lawart.uz/","logo":"https://lawart.uz/icon-512.png"},"editor":{"@type":"Person","name":"Ходжиев Хасан Бекзод угли"}}]}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/key.js"></script>
-<script src="assets/config.js?v=20261120h"></script>
-<script src="assets/i18n.js?v=20261120h"></script>
-<script src="assets/offer.js?v=20261120h"></script>
-<script src="assets/app.js?v=20261120h"></script>
+<script src="assets/config.js?v=20261120i"></script>
+<script src="assets/i18n.js?v=20261120i"></script>
+<script src="assets/offer.js?v=20261120i"></script>
+<script src="assets/app.js?v=20261120i"></script>
 <script>
 (async () => {
   await boot("home", { overlay: true });
@@ -183,7 +184,7 @@
 
   const shapeEl = $("#shapeName");
   const setShape = i => { shapeEl.style.opacity = 0; setTimeout(() => { shapeEl.textContent = t("hero.shape" + i); shapeEl.style.opacity = 1; }, 260); };
-  import("./assets/hero3d.js?v=20261120h").then(m => {
+  import("./assets/hero3d.js?v=20261120i").then(m => {
     const h = m.initHero($("#hero3d"), { onShape: setShape });
     if (h) $("#shapeNext").onclick = () => h.next(); else $(".hero-shape").remove();
   }).catch(e => { console.warn(e); $(".hero-shape")?.remove(); });

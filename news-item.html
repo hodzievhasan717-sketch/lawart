@@ -2,30 +2,56 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Новость — Lawart</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Материал — Lawart</title>
+<meta name="description" content="Lawart.uz — электронный научный журнал юридических статей. Читайте исследования по праву Узбекистана и публикуйте свои статьи онлайн.">
+<meta property="og:title" content="Материал — Lawart">
+<meta property="og:description" content="Научный журнал, где право становится искусством аргумента.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Lawart">
+<meta name="theme-color" content="#0b0c10">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>try{var th=localStorage.getItem('lawart-theme');if(th)document.documentElement.dataset.theme=th;var lg=localStorage.getItem('lawart-lang');if(lg)document.documentElement.lang=lg}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://xgwzpygoewtfeexraats.supabase.co">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-<main class="wrap"><article class="news-full" id="n"><div class="empty-state">Загрузка…</div></article></main>
+<div class="progress" id="prog"></div>
+<main><article class="news-full" id="n"><div class="empty-state" data-t="c.loading"></div></article></main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/key.js"></script>
 <script src="assets/config.js"></script>
+<script src="assets/i18n.js"></script>
 <script src="assets/app.js"></script>
 <script>
 (async () => {
   await boot("news");
   const { data: n } = await sb.from("news").select("*").eq("id", +qs("id")).maybeSingle();
-  if (!n) { $("#n").innerHTML = `<div class="empty-state"><b>Материал не найден</b><a href="news.html">Ко всем новостям</a></div>`; return; }
+  if (!n) { $("#n").innerHTML = `<div class="empty-state"><div class="es-ic">✦</div><b>${t("nw.notFound")}</b><a class="btn ghost" href="news.html">${t("nw.backAll")}</a></div>`; return; }
   document.title = n.title + " — Lawart";
-  $("#n").innerHTML = `<a class="mono" style="color:var(--oxblood);text-decoration:none" href="news.html${n.kind === "interesting" ? "?kind=interesting" : ""}">← ${n.kind === "news" ? "Новости" : "Интересное"}</a>
-    <h1>${esc(n.title)}</h1><p class="mono muted">${fmtDate(n.created_at)}</p>
-    ${n.cover_url ? `<div class="cover" style="background-image:url('${esc(n.cover_url)}')"></div>` : ""}
-    ${n.summary ? `<p style="font-weight:600;font-size:1.1rem">${esc(n.summary)}</p>` : ""}
-    <div class="body">${esc(n.body)}</div>`;
+  const words = String(n.body || "").split(/\s+/).filter(Boolean).length;
+  const mins = Math.max(1, Math.round(words / 180));
+  const body = String(n.body || "").split(/\n{2,}/).map(p => {
+    p = p.trim();
+    if (/^##\s/.test(p)) return `<h2>${esc(p.replace(/^##\s/, ""))}</h2>`;
+    if (/^>\s/.test(p)) return `<blockquote>${esc(p.replace(/^>\s/, ""))}</blockquote>`;
+    if (/^(-|\d+\.)\s/m.test(p) && p.split("\n").every(l => /^(-|\d+\.)\s/.test(l.trim()))) {
+      const ol = /^\d+\./.test(p);
+      return `<${ol ? "ol" : "ul"}>${p.split("\n").map(l => `<li>${esc(l.trim().replace(/^(-|\d+\.)\s/, ""))}</li>`).join("")}</${ol ? "ol" : "ul"}>`;
+    }
+    return `<p>${esc(p).replace(/\n/g, "<br>")}</p>`;
+  }).join("");
+  $("#n").innerHTML = `<nav class="crumbs"><a href="index.html">${t("nav.home")}</a><span>/</span><a href="news.html${n.kind === "interesting" ? "?kind=interesting" : ""}">${n.kind === "news" ? t("nav.news") : t("nav.interesting")}</a></nav>
+    <h1>${esc(n.title)}</h1>
+    <p class="mono muted">${fmtDate(n.created_at)} · ${mins} ${t("nw.read")}${n.author ? " · " + t("nw.by") + ": " + esc(n.author) : ""}</p>
+    ${n.cover_url ? `<div class="cover-img" style="background-image:url('${esc(n.cover_url)}')"></div>` : `<div class="cv-rule" style="margin:30px 0"></div>`}
+    ${n.summary ? `<p class="lead">${esc(n.summary)}</p>` : ""}
+    <div class="body">${body}</div>
+    <div class="actions" style="margin-top:40px"><a class="btn ghost" href="news.html${n.kind === "interesting" ? "?kind=interesting" : ""}">← ${t("nw.backAll")}</a></div>`;
+  const prog = $("#prog");
+  addEventListener("scroll", () => { const h = document.documentElement.scrollHeight - innerHeight; prog.style.transform = `scaleX(${h > 0 ? scrollY / h : 0})`; }, { passive: true });
 })();
 </script>
 </body>

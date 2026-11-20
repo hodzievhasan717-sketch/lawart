@@ -2,57 +2,178 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Научные статьи — Lawart</title>
+<meta name="description" content="Lawart.uz — электронный научный журнал юридических статей. Читайте исследования по праву Узбекистана и публикуйте свои статьи онлайн.">
+<meta property="og:title" content="Научные статьи — Lawart">
+<meta property="og:description" content="Научный журнал, где право становится искусством аргумента.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Lawart">
+<meta name="theme-color" content="#0b0c10">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>try{var th=localStorage.getItem('lawart-theme');if(th)document.documentElement.dataset.theme=th;var lg=localStorage.getItem('lawart-lang');if(lg)document.documentElement.lang=lg}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://xgwzpygoewtfeexraats.supabase.co">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
 <main>
-  <section class="page-title">
+  <section class="page-hero night">
     <div class="wrap">
-      <span class="mono muted">Архив журнала</span>
-      <h1>Научные <i>статьи</i></h1>
+      <span class="kicker"><i></i><span data-t="a.kicker"></span></span>
+      <h1 data-t="a.title"></h1>
+      <p id="phSub"></p>
     </div>
+    <div class="ph-mark">§</div>
   </section>
   <div class="wrap">
-    <div class="filters">
-      <input id="q" placeholder="Поиск по названию, автору, ключевым словам">
-      <select id="sort"><option value="new">Сначала новые</option><option value="old">Сначала старые</option><option value="pop">Самые читаемые</option></select>
+    <div class="catalog">
+      <aside class="filters" id="filters">
+        <div class="f-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" data-tp="a.search" autocomplete="off"></div>
+        <div class="f-group"><h5 data-t="a.rubric"></h5><div id="fRubric"></div></div>
+        <div class="f-group"><h5 data-t="a.lang"></h5><div class="f-row" id="fLang"></div></div>
+        <div class="f-group"><h5 data-t="a.year"></h5><div class="f-row" id="fYear"></div></div>
+        <div class="f-group"><h5 data-t="h.saved"></h5><label class="switch"><input type="checkbox" id="fSaved"><span data-t="a.onlySaved"></span></label></div>
+        <div class="f-group"><h5 data-t="a.tags"></h5><div class="tagcloud" id="tags"></div></div>
+        <div class="f-group"><button class="btn ghost sm" id="reset" type="button" data-t="a.reset"></button> <button class="btn ghost sm" id="rand" type="button"></button></div>
+      </aside>
+      <section>
+        <div class="res-head">
+          <h3 id="resTitle"></h3>
+          <div class="res-tools">
+            <button class="btn ghost sm filter-toggle" id="ftog" type="button"></button>
+            <select id="sort" aria-label="sort"></select>
+            <div class="seg" role="group"><button type="button" data-v="list" class="on"></button><button type="button" data-v="grid"></button></div>
+          </div>
+        </div>
+        <div class="act-filters" id="active"></div>
+        <div class="alist" id="list"></div>
+      </section>
     </div>
-    <div class="chips" id="chips"></div>
-    <div class="alist" id="list" style="margin-top:14px"></div>
   </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/key.js"></script>
 <script src="assets/config.js"></script>
+<script src="assets/i18n.js"></script>
 <script src="assets/app.js"></script>
 <script>
 (async () => {
-  await boot("articles");
-  let all = [], rubric = qs("rubric") || "";
-  const { data } = await sb.from("articles").select("id,title,authors,category,abstract,keywords,published_at,views").eq("status", "published").order("published_at", { ascending: false });
-  all = data || [];
-  const used = RUBRICS.filter(r => all.some(a => a.category === r));
-  $("#chips").innerHTML = [`<button class="chip ${rubric ? "" : "on"}" data-r="">Все рубрики</button>`, ...used.map(r => `<button class="chip ${r === rubric ? "on" : ""}" data-r="${esc(r)}">${esc(r)}</button>`)].join("");
-  $$("#chips .chip").forEach(c => c.onclick = () => { rubric = c.dataset.r; $$("#chips .chip").forEach(x => x.classList.toggle("on", x === c)); draw(); });
-  $("#q").oninput = draw; $("#sort").onchange = draw;
-  function draw() {
-    const q = $("#q").value.trim().toLowerCase();
-    let list = all.filter(a => (!rubric || a.category === rubric) && (!q || [a.title, a.authors, a.keywords, a.abstract].join(" ").toLowerCase().includes(q)));
-    const s = $("#sort").value;
-    if (s === "old") list = [...list].reverse();
-    if (s === "pop") list = [...list].sort((a, b) => b.views - a.views);
-    $("#list").innerHTML = list.length ? list.map((a, i) => `<a class="arow" href="article.html?id=${a.id}">
-        <div class="num">№${String(a.id).padStart(3, "0")}</div>
-        <div><span class="mono" style="color:var(--oxblood)">${esc(a.category)}</span><h3>${esc(a.title)}</h3><div class="auth">${esc(a.authors)}</div><div class="abs">${esc(a.abstract)}</div></div>
-        <div class="side mono">${fmtDate(a.published_at)}<br>${a.views} просм.<br><span style="color:var(--ink)">PDF ↓</span></div></a>`).join("")
-      : `<div class="empty-state"><b>${all.length ? "Ничего не найдено" : "Архив пока пуст"}</b>${all.length ? "Попробуйте другой запрос или рубрику." : "Первые статьи появятся после проверки редакцией."}</div>`;
+  await boot("articles", { overlay: true });
+  const S = {
+    q: qs("q") || "", rubric: qs("rubric") || "", author: qs("author") || "", lang: qs("lang_f") || "", year: qs("year") || "",
+    saved: qs("saved") === "1", sort: qs("sort") || "", view: store.get("lawart-view", "list")
+  };
+  $("#q").value = S.q;
+  $("#fSaved").checked = S.saved;
+  $("#rand").innerHTML = ICON.dice + " " + t("a.random");
+  $("#ftog").innerHTML = ICON.filter + " " + t("a.showFilters");
+  $("#ftog").onclick = () => $("#filters").classList.toggle("open");
+  $$(".seg button")[0].innerHTML = ICON.list; $$(".seg button")[1].innerHTML = ICON.grid;
+  $("#sort").innerHTML = ["relevance", "new", "old", "popular", "downloads"].map(k => `<option value="${k}">${t("sort." + k)}</option>`).join("");
+
+  const { articles } = await getIndex();
+  const years = [...new Set(articles.map(a => new Date(a.published_at).getFullYear()))].sort((a, b) => b - a);
+  const langs = [...new Set(articles.map(a => a.lang || "ru"))];
+
+  function paintFilters() {
+    const cnt = {}; articles.forEach(a => cnt[a.category] = (cnt[a.category] || 0) + 1);
+    $("#fRubric").innerHTML = `<button class="f-opt ${!S.rubric ? "on" : ""}" data-r=""><span>${t("a.all")}</span><i>${articles.length}</i></button>` +
+      RUBRIC_NAMES.map(r => `<button class="f-opt ${S.rubric === r ? "on" : ""} ${cnt[r] ? "" : "zero"}" data-r="${esc(r)}"><span>${esc(rubricName(r))}</span><i>${cnt[r] || 0}</i></button>`).join("");
+    $$("#fRubric .f-opt").forEach(b => b.onclick = () => { S.rubric = b.dataset.r; paintFilters(); draw(); });
+    $("#fLang").innerHTML = [["", t("a.all")], ...Object.keys(LANGS).map(k => [k, LANGS[k]])].map(([k, v]) => `<button class="chip ${S.lang === k ? "on" : ""} ${k && !langs.includes(k) ? "zero" : ""}" data-l="${k}">${esc(v)}</button>`).join("");
+    $$("#fLang .chip").forEach(b => b.onclick = () => { S.lang = b.dataset.l; paintFilters(); draw(); });
+    $("#fYear").innerHTML = [["", t("a.all")], ...years.map(y => [String(y), String(y)])].map(([k, v]) => `<button class="chip ${S.year === k ? "on" : ""}" data-y="${k}">${v}</button>`).join("");
+    $$("#fYear .chip").forEach(b => b.onclick = () => { S.year = b.dataset.y; paintFilters(); draw(); });
+    const kw = {};
+    articles.forEach(a => String(a.keywords || "").split(/[,;]/).map(s => s.trim().toLowerCase()).filter(s => s && s.length < 40).forEach(k => kw[k] = (kw[k] || 0) + 1));
+    const top = Object.entries(kw).sort((a, b) => b[1] - a[1]).slice(0, 24);
+    $("#tags").innerHTML = top.length ? top.map(([k]) => `<a href="#" data-k="${esc(k)}">${esc(k)}</a>`).join("") : `<span class="muted" style="font-size:.85rem">—</span>`;
+    $$("#tags a").forEach(a => a.onclick = e => { e.preventDefault(); S.q = a.dataset.k; $("#q").value = S.q; draw(); scrollTo({ top: $(".catalog").offsetTop - 90, behavior: "smooth" }); });
   }
-  draw();
+
+  function syncUrl() {
+    const p = new URLSearchParams();
+    if (S.q) p.set("q", S.q); if (S.rubric) p.set("rubric", S.rubric); if (S.author) p.set("author", S.author);
+    if (S.lang) p.set("lang_f", S.lang); if (S.year) p.set("year", S.year); if (S.saved) p.set("saved", "1"); if (S.sort) p.set("sort", S.sort);
+    history.replaceState(null, "", "articles.html" + (p.toString() ? "?" + p : ""));
+  }
+
+  function draw() {
+    syncUrl();
+    const toks = tokens(S.q);
+    let list = S.q ? searchArticles(articles, S.q) : articles.slice();
+    if (S.rubric) list = list.filter(a => a.category === S.rubric);
+    if (S.author) list = list.filter(a => authorNames(a.authors).some(n => norm(n) === norm(S.author)) || norm(a.authors).includes(norm(S.author)));
+    if (S.lang) list = list.filter(a => (a.lang || "ru") === S.lang);
+    if (S.year) list = list.filter(a => String(new Date(a.published_at).getFullYear()) === S.year);
+    if (S.saved) { const f = Fav.list(); list = list.filter(a => f.includes(a.id)); }
+    const sort = S.sort || (S.q ? "relevance" : "new");
+    $("#sort").value = sort;
+    if (sort === "new") list.sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
+    if (sort === "old") list.sort((a, b) => new Date(a.published_at) - new Date(b.published_at));
+    if (sort === "popular") list.sort((a, b) => (b.views || 0) - (a.views || 0));
+    if (sort === "downloads") list.sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
+
+    $("#resTitle").innerHTML = (S.author ? `${t("a.byAuthor")}: ${esc(S.author)}` : S.rubric ? esc(rubricName(S.rubric)) : t("a.found")) + `<small>${num(list.length)} ${tn("stat.articles", list.length)}</small>`;
+    $("#phSub").textContent = `${num(articles.length)} ${tn("stat.articles", articles.length)} · ${RUBRICS.length} ${tn("stat.rubrics", RUBRICS.length)}`;
+
+    const act = [];
+    if (S.q) act.push(["q", "«" + S.q + "»"]);
+    if (S.rubric) act.push(["rubric", rubricName(S.rubric)]);
+    if (S.author) act.push(["author", S.author]);
+    if (S.lang) act.push(["lang", LANGS[S.lang] || S.lang]);
+    if (S.year) act.push(["year", S.year]);
+    if (S.saved) act.push(["saved", "★ " + t("h.saved")]);
+    $("#active").innerHTML = act.map(([k, v]) => `<button class="chip" data-k="${k}">${esc(v)} <span>×</span></button>`).join("");
+    $$("#active .chip").forEach(c => c.onclick = () => {
+      const k = c.dataset.k;
+      if (k === "saved") { S.saved = false; $("#fSaved").checked = false; } else S[k] = "";
+      if (k === "q") $("#q").value = "";
+      paintFilters(); draw();
+    });
+
+    const L = $("#list");
+    L.className = "alist" + (S.view === "grid" ? " grid" : "");
+    if (!list.length) {
+      L.innerHTML = `<div class="empty-state"><div class="es-ic">${S.saved ? "★" : "§"}</div><b>${articles.length ? (S.saved ? t("h.saved") : t("a.nothing")) : t("a.emptyArchive")}</b>${articles.length ? (S.saved ? t("a.savedEmpty") : t("a.nothingSub")) : t("a.emptyArchiveSub")}</div>`;
+      return;
+    }
+    L.innerHTML = list.map(a => {
+      const fav = Fav.has(a.id), rm = readMin(a);
+      const auth = authorNames(a.authors).map(n => `<a href="articles.html?author=${encodeURIComponent(n)}" data-author="${esc(n)}">${highlight(n, toks)}</a>`).join(", ");
+      return `<article class="arow reveal">
+        <a href="article.html?id=${a.id}" tabindex="-1" aria-hidden="true">${coverHTML(a)}</a>
+        <div class="ar-main">
+          <a class="tag-cat" href="articles.html?rubric=${encodeURIComponent(a.category)}" data-rubric="${esc(a.category)}">${esc(rubricName(a.category))}</a>
+          <a class="ttl" href="article.html?id=${a.id}">${highlight(a.title, toks)}</a>
+          <div class="ar-auth">${auth}</div>
+          <div class="ar-abs">${highlight(a.abstract, toks)}</div>
+          <div class="ar-meta"><span class="mono">№${pad(a.id)}</span><span>${fmtDate(a.published_at)}</span>${rm ? `<span>${ICON.clock}${rm} ${t("m.min")}</span>` : ""}<span>${ICON.eye}${num(a.views)}</span>${a.downloads ? `<span>${ICON.down}${num(a.downloads)}</span>` : ""}<span>${esc(LANGS[a.lang] || "")}</span></div>
+        </div>
+        <div class="ar-side"><button class="fav-toggle ${fav ? "on" : ""}" type="button" data-fav="${a.id}" aria-label="${fav ? t("a.unsave") : t("a.save")}" title="${fav ? t("a.unsave") : t("a.save")}">${ICON.star}</button></div>
+      </article>`;
+    }).join("");
+    $$("[data-author]", L).forEach(x => x.onclick = e => { e.preventDefault(); S.author = x.dataset.author; S.q = ""; $("#q").value = ""; paintFilters(); draw(); scrollTo({ top: 0, behavior: "smooth" }); });
+    $$("[data-rubric]", L).forEach(x => x.onclick = e => { e.preventDefault(); S.rubric = x.dataset.rubric; paintFilters(); draw(); });
+    $$("[data-fav]", L).forEach(b => b.onclick = () => {
+      const on = Fav.toggle(b.dataset.fav);
+      b.classList.toggle("on", on); b.classList.remove("pop"); void b.offsetWidth; b.classList.add("pop");
+      toast(on ? "★ " + t("ar.saved") : t("a.unsave"));
+      if (S.saved && !on) draw();
+    });
+    bindFx(L);
+  }
+
+  $("#q").addEventListener("input", debounce(() => { S.q = $("#q").value.trim(); draw(); }, 120));
+  $("#sort").onchange = () => { S.sort = $("#sort").value; draw(); };
+  $("#fSaved").onchange = () => { S.saved = $("#fSaved").checked; draw(); };
+  $$(".seg button").forEach(b => { b.classList.toggle("on", b.dataset.v === S.view); b.onclick = () => { S.view = b.dataset.v; store.set("lawart-view", S.view); $$(".seg button").forEach(x => x.classList.toggle("on", x === b)); draw(); }; });
+  $("#reset").onclick = () => { Object.assign(S, { q: "", rubric: "", author: "", lang: "", year: "", saved: false, sort: "" }); $("#q").value = ""; $("#fSaved").checked = false; paintFilters(); draw(); };
+  $("#rand").onclick = goRandom;
+  paintFilters(); draw();
+  if (S.q) $("#q").focus();
 })();
 </script>
 </body>

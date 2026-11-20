@@ -2,61 +2,165 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Статья — Lawart</title>
+<meta name="description" content="Lawart.uz — электронный научный журнал юридических статей. Читайте исследования по праву Узбекистана и публикуйте свои статьи онлайн.">
+<meta property="og:title" content="Статья — Lawart">
+<meta property="og:description" content="Научный журнал, где право становится искусством аргумента.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Lawart">
+<meta name="theme-color" content="#0b0c10">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>try{var th=localStorage.getItem('lawart-theme');if(th)document.documentElement.dataset.theme=th;var lg=localStorage.getItem('lawart-lang');if(lg)document.documentElement.lang=lg}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://xgwzpygoewtfeexraats.supabase.co">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-<main class="wrap">
-  <div id="art"><div class="empty-state">Загрузка…</div></div>
-</main>
+<div class="progress" id="prog"></div>
+<main id="art"><div class="empty-state" style="padding-top:200px" data-t="c.loading"></div></main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/key.js"></script>
 <script src="assets/config.js"></script>
+<script src="assets/i18n.js"></script>
 <script src="assets/app.js"></script>
 <script>
 (async () => {
-  await boot("articles");
+  await boot("articles", { overlay: true });
   const id = +qs("id");
   const { data: a } = await sb.from("articles").select("*").eq("id", id).maybeSingle();
-  if (!a) { $("#art").innerHTML = `<div class="empty-state"><b>Статья не найдена</b><a href="articles.html">Вернуться в архив</a></div>`; return; }
+  if (!a) {
+    $("#art").innerHTML = `<div class="empty-state" style="padding-top:200px"><div class="es-ic">§</div><b>${t("ar.notFound")}</b><a class="btn ghost" href="articles.html">${t("ar.backArchive")}</a></div>`;
+    return;
+  }
   document.title = a.title + " — Lawart";
-  if (a.status === "published") sb.rpc("add_view", { a_id: id });
+  if (a.status === "published") {
+    const k = "lawart-v-" + id + "-" + new Date().toDateString();
+    try { if (!localStorage.getItem(k)) { sb.rpc("add_view", { a_id: id }).then(() => { }); localStorage.setItem(k, "1"); } } catch (e) { }
+  }
   const url = await signedUrl("papers", a.pdf_path, 3600 * 3);
-  const year = new Date(a.published_at || a.created_at).getFullYear();
-  const link = (CFG.SITE_URL || location.origin) + "/article.html?id=" + a.id;
-  const cite = `${a.authors}. ${a.title} // Lawart: электронный научный журнал. ${year}. URL: ${link}`;
-  $("#art").innerHTML = `<div class="art">
-    <article>
-      ${a.status !== "published" ? `<div class="note">Статья еще не опубликована. Ее видите только вы и редакция. Статус: ${badge(a.status)}</div>` : ""}
-      <a href="articles.html?rubric=${encodeURIComponent(a.category)}" class="mono" style="color:var(--oxblood);text-decoration:none">${esc(a.category)}</a>
-      <h1>${esc(a.title)}</h1>
-      <div class="auth">${esc(a.authors)}</div>
-      ${a.abstract ? `<div class="abs">${esc(a.abstract)}</div>` : ""}
-      ${a.keywords ? `<div class="kw">${a.keywords.split(/[,;]/).map(k => k.trim()).filter(Boolean).map(k => `<span>${esc(k)}</span>`).join("")}</div>` : ""}
-      ${url ? `<div class="pdfbox"><iframe src="${url}#view=FitH" title="Текст статьи"></iframe></div>` : `<p class="muted">Файл статьи недоступен.</p>`}
-    </article>
-    <aside>
-      <div class="aside-card">
-        ${url ? `<a class="btn red" style="width:100%" href="${url}" target="_blank" rel="noopener">Скачать PDF</a>` : ""}
+  const names = authorNames(a.authors);
+  const segs = splitAuthors(a.authors);
+  const rm = readMin(a);
+  const fav = Fav.has(a.id);
+  const kws = String(a.keywords || "").split(/[,;]/).map(s => s.trim()).filter(Boolean);
+  $("#art").innerHTML = `
+  <section class="art-hero night">
+    <div class="wrap">
+      <div>
+        <nav class="crumbs"><a href="index.html">${t("nav.home")}</a><span>/</span><a href="articles.html">${t("nav.articles")}</a><span>/</span><a href="articles.html?rubric=${encodeURIComponent(a.category)}">${esc(rubricName(a.category))}</a></nav>
+        ${a.status !== "published" ? `<div class="note" style="margin-top:18px">${t("ar.notPublished")} ${badge(a.status)}</div>` : ""}
+        <h1>${esc(a.title)}</h1>
+        <div class="art-authors">${segs.map(s => { const n = authorName(s); return `<a href="articles.html?author=${encodeURIComponent(n)}" title="${esc(s)}"><span class="avatar sm">${esc(initials(n))}</span>${esc(n)}</a>`; }).join("")}</div>
+        <div class="art-stats">
+          <div><b>№${pad(a.id)}</b>${t("ar.number")}</div>
+          <div><b>${fmtShort(a.published_at || a.created_at)}</b>${t("ar.date")}</div>
+          ${rm ? `<div><b>${rm} ${t("m.min")}</b>${t("ar.readTime")}</div>` : ""}
+          <div><b id="vCnt">${num(a.views)}</b>${t("ar.reads")}</div>
+          <div><b id="dCnt">${num(a.downloads || 0)}</b>${t("ar.downloads")}</div>
+        </div>
       </div>
-      <div class="aside-card"><h4>О публикации</h4><dl>
-        <dt>Номер</dt><dd>№${String(a.id).padStart(3, "0")}</dd>
-        <dt>Дата</dt><dd>${fmtDate(a.published_at || a.created_at)}</dd>
-        <dt>Рубрика</dt><dd>${esc(a.category)}</dd>
-        <dt>Язык</dt><dd>${{ ru: "Русский", uz: "Узбекский", en: "Английский" }[a.lang] || a.lang}</dd>
-        <dt>Прочтений</dt><dd>${a.views}</dd></dl></div>
-      <div class="aside-card"><h4>Как цитировать</h4><div class="cite" id="cite">${esc(cite)}</div>
-        <button class="btn ghost sm" id="copyCite">Скопировать</button></div>
-      <div class="aside-card"><h4>Поделиться</h4>
-        <a class="btn ghost sm" target="_blank" rel="noopener" href="https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(a.title)}">Telegram</a>
-        <button class="btn ghost sm" id="copyLink">Ссылка</button></div>
-    </aside></div>`;
-  $("#copyCite").onclick = () => { navigator.clipboard.writeText(cite); toast("Ссылка для цитирования скопирована"); };
-  $("#copyLink").onclick = () => { navigator.clipboard.writeText(link); toast("Ссылка скопирована"); };
+      ${coverHTML(a, true)}
+    </div>
+  </section>
+  <div class="wrap art-body">
+    <article>
+      <span class="kicker"><i></i>${t("ar.abstract")}</span>
+      ${a.abstract ? `<p class="abstract" style="margin-top:18px">${esc(a.abstract)}</p>` : ""}
+      ${kws.length ? `<div class="kw">${kws.map(k => `<a href="articles.html?q=${encodeURIComponent(k)}">#${esc(k)}</a>`).join("")}</div>` : ""}
+      <div class="art-actions">
+        ${url ? `<a class="btn red magnetic" id="dl" href="${url}" target="_blank" rel="noopener">${ICON.down}${t("ar.download")}</a>` : ""}
+        <button class="btn ghost" id="favBtn" type="button">${ICON.star}<span>${fav ? t("ar.saved") : t("ar.save")}</span></button>
+        <button class="btn ghost" id="citeBtn" type="button">${ICON.quote}${t("ar.cite")}</button>
+        <button class="btn ghost" id="shareBtn" type="button">${ICON.share}${t("ar.share")}</button>
+        ${"speechSynthesis" in window && a.abstract ? `<button class="btn ghost listen" id="listenBtn" type="button">${ICON.speaker}<span>${t("ar.listen")}</span></button>` : ""}
+      </div>
+      ${url ? `<div class="pdf-wrap reveal"><div class="pdf-bar"><b>${t("ar.text")}</b><span class="actions" style="margin:0"><a class="btn ghost sm" href="${url}" target="_blank" rel="noopener">${ICON.expand}${t("ar.openNew")}</a><button class="btn ghost sm" id="fsBtn" type="button">${ICON.expand}${t("ar.fullscreen")}</button></span></div><iframe id="pdf" src="${url}#view=FitH" title="PDF"></iframe></div>` : `<p class="muted">${t("ar.noFile")}</p>`}
+      <div id="related"></div>
+    </article>
+    <aside><div class="sticky">
+      <div class="side-card"><h4>${t("ar.about")}</h4><dl>
+        <dt>${t("ar.number")}</dt><dd>№${pad(a.id)}</dd>
+        <dt>${t("ar.date")}</dt><dd>${fmtDate(a.published_at || a.created_at)}</dd>
+        <dt>${t("ar.rubric")}</dt><dd><a href="articles.html?rubric=${encodeURIComponent(a.category)}">${esc(rubricName(a.category))}</a></dd>
+        <dt>${t("ar.language")}</dt><dd>${esc(LANGS[a.lang] || a.lang)}</dd>
+        ${a.pages ? `<dt>${t("ar.pages")}</dt><dd>${a.pages}</dd>` : ""}
+      </dl></div>
+      <div class="side-card"><h4>${t("ar.cite")}</h4><div class="cite-box" id="gostBox"></div><div class="actions" style="margin-top:12px"><button class="btn ghost sm" id="copyGost" type="button">${t("ar.copy")}</button><button class="btn ghost sm" id="moreCite" type="button">APA · BibTeX</button></div></div>
+      ${names.length ? `<div class="side-card"><h4>${t("p.authors")}</h4>${segs.map(s => `<p style="margin:0 0 10px;font-size:.9rem"><b>${esc(authorName(s))}</b><br><span class="muted">${esc(s.split(",").slice(1).join(",").trim())}</span><br><a href="articles.html?author=${encodeURIComponent(authorName(s))}" style="font-size:.82rem">${t("ar.allByAuthor")} →</a></p>`).join("")}</div>` : ""}
+    </div></aside>
+  </div>`;
+
+  const cites = citeFormats(a);
+  $("#gostBox").textContent = cites.gost;
+  $("#copyGost").onclick = () => copyText(cites.gost, t("ar.citeCopied"));
+  const openCite = () => {
+    const m = modal(`<h3>${t("ar.cite")}</h3><p class="muted">${t("ar.citeHint")}</p>
+      <div class="cite-tabs">${["gost", "apa", "bib"].map((k, i) => `<button class="chip ${i ? "" : "on"}" data-c="${k}">${{ gost: "ГОСТ", apa: "APA", bib: "BibTeX" }[k]}</button>`).join("")}</div>
+      <div class="cite-box" id="citeOut"></div><div class="actions"><button class="btn red" id="citeCopy">${t("ar.copy")}</button></div>`);
+    let cur = "gost";
+    const show = () => { $("#citeOut", m.el).textContent = cites[cur]; $$("[data-c]", m.el).forEach(b => b.classList.toggle("on", b.dataset.c === cur)); };
+    $$("[data-c]", m.el).forEach(b => b.onclick = () => { cur = b.dataset.c; show(); });
+    $("#citeCopy", m.el).onclick = () => copyText(cites[cur], t("ar.citeCopied"));
+    show();
+  };
+  $("#citeBtn").onclick = openCite; $("#moreCite").onclick = openCite;
+
+  $("#favBtn").onclick = () => {
+    const on = Fav.toggle(a.id);
+    $("#favBtn span").textContent = on ? t("ar.saved") : t("ar.save");
+    $("#favBtn").classList.toggle("gold", on);
+    if (on) { const r = $("#favBtn").getBoundingClientRect(); confetti(r.left + r.width / 2, r.top, 40); }
+  };
+  if (fav) $("#favBtn").classList.add("gold");
+
+  const link = siteUrl() + "article.html?id=" + a.id;
+  $("#shareBtn").onclick = async () => {
+    if (navigator.share) { try { await navigator.share({ title: a.title, url: link }); return; } catch (e) { return; } }
+    const m = modal(`<h3>${t("ar.share")}</h3><p class="muted" style="word-break:break-all">${esc(link)}</p>
+      <div class="actions"><a class="btn red" target="_blank" rel="noopener" href="https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(a.title)}">Telegram</a>
+      <a class="btn ghost" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(a.title + " " + link)}">WhatsApp</a>
+      <button class="btn ghost" id="cpl">${t("ar.copyLink")}</button></div>`);
+    $("#cpl", m.el).onclick = () => copyText(link, t("ar.linkCopied"));
+  };
+
+  const dl = $("#dl");
+  if (dl) dl.addEventListener("click", () => {
+    if (a.status === "published") sb.rpc("add_download", { a_id: a.id }).then(() => { $("#dCnt").textContent = num((a.downloads || 0) + 1); });
+  });
+  const fs = $("#fsBtn");
+  if (fs) fs.onclick = () => { const f = $("#pdf"); (f.requestFullscreen || f.webkitRequestFullscreen || (() => { })).call(f); };
+
+  const lb = $("#listenBtn");
+  if (lb) {
+    let speaking = false;
+    lb.onclick = () => {
+      if (speaking) { speechSynthesis.cancel(); return; }
+      const u = new SpeechSynthesisUtterance(a.abstract);
+      const want = (a.lang === "uz" ? "uz" : a.lang === "en" ? "en" : "ru");
+      const v = speechSynthesis.getVoices().find(v => v.lang.toLowerCase().startsWith(want));
+      if (v) u.voice = v; u.lang = v ? v.lang : { ru: "ru-RU", uz: "uz-UZ", en: "en-GB" }[want]; u.rate = 1;
+      u.onstart = () => { speaking = true; lb.classList.add("on"); $("span", lb).innerHTML = `<span class="eq"><i></i><i></i><i></i></span> ${t("ar.stop")}`; };
+      u.onend = u.onerror = () => { speaking = false; lb.classList.remove("on"); $("span", lb).textContent = t("ar.listen"); };
+      speechSynthesis.cancel(); speechSynthesis.speak(u);
+    };
+    addEventListener("pagehide", () => speechSynthesis.cancel());
+  }
+
+  const prog = $("#prog");
+  addEventListener("scroll", () => {
+    const h = document.documentElement.scrollHeight - innerHeight;
+    prog.style.transform = `scaleX(${h > 0 ? scrollY / h : 0})`;
+  }, { passive: true });
+
+  if (a.status === "published") {
+    const { articles } = await getIndex();
+    const rel = articles.filter(x => x.id !== a.id).map(x => [x, (x.category === a.category ? 3 : 0) + authorNames(x.authors).filter(n => names.includes(n)).length * 2 + String(x.keywords || "").split(/[,;]/).map(s => norm(s)).filter(s => s && kws.map(norm).includes(s)).length])
+      .filter(x => x[1] > 0).sort((p, q) => q[1] - p[1]).slice(0, 3).map(x => x[0]);
+    if (rel.length) $("#related").innerHTML = `<div class="sec-head" style="margin:70px 0 26px"><h2 style="font-size:2.4rem">${t("ar.related")}</h2></div><div class="related">${rel.map(x => cardHTML(x)).join("")}</div>`;
+  }
+  bindFx();
 })();
 </script>
 </body>

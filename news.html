@@ -2,36 +2,52 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Новости — Lawart</title>
+<meta name="description" content="Lawart.uz — электронный научный журнал юридических статей. Читайте исследования по праву Узбекистана и публикуйте свои статьи онлайн.">
+<meta property="og:title" content="Новости — Lawart">
+<meta property="og:description" content="Научный журнал, где право становится искусством аргумента.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Lawart">
+<meta name="theme-color" content="#0b0c10">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>try{var th=localStorage.getItem('lawart-theme');if(th)document.documentElement.dataset.theme=th;var lg=localStorage.getItem('lawart-lang');if(lg)document.documentElement.lang=lg}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://xgwzpygoewtfeexraats.supabase.co">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
 <main>
-  <section class="page-title"><div class="wrap"><span class="mono muted" id="kicker">Журнал</span><h1 id="h"></h1>
-    <div class="chips" style="margin-top:22px"><a class="chip" href="news.html" id="cN" style="text-decoration:none">Новости</a><a class="chip" href="news.html?kind=interesting" id="cI" style="text-decoration:none">Интересное</a></div></div></section>
-  <div class="wrap"><div class="news-page" id="grid"></div></div>
+  <section class="page-hero night">
+    <div class="wrap">
+      <span class="kicker"><i></i><span data-t="nw.kicker"></span></span>
+      <h1 id="h"></h1>
+      <div class="actions" style="margin-top:26px"><a class="chip" href="news.html" id="cN" data-t="nav.news"></a><a class="chip" href="news.html?kind=interesting" id="cI" data-t="nav.interesting"></a></div>
+    </div>
+    <div class="ph-mark">✦</div>
+  </section>
+  <div class="wrap"><div class="news-grid" id="grid"></div></div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/key.js"></script>
 <script src="assets/config.js"></script>
+<script src="assets/i18n.js"></script>
 <script src="assets/app.js"></script>
 <script>
 (async () => {
   const kind = qs("kind") === "interesting" ? "interesting" : "news";
-  await boot(kind === "news" ? "news" : "interesting");
-  $("#h").innerHTML = kind === "news" ? "Новости <i>журнала</i>" : "Интересное <i>о праве</i>";
-  document.title = (kind === "news" ? "Новости" : "Интересное") + " — Lawart";
+  await boot(kind === "news" ? "news" : "interesting", { overlay: true });
+  $("#h").innerHTML = kind === "news" ? t("nw.newsTitle") : t("nw.intTitle");
+  document.title = $("#h").textContent + " — Lawart";
   $(kind === "news" ? "#cN" : "#cI").classList.add("on");
-  const { data } = await sb.from("news").select("id,title,summary,cover_url,created_at").eq("kind", kind).eq("published", true).order("created_at", { ascending: false });
-  $("#grid").innerHTML = data?.length ? data.map(n => `<a class="ncard reveal" href="news-item.html?id=${n.id}">
-      <div class="img" style="${n.cover_url ? `background-image:url('${esc(n.cover_url)}')` : ""}">${n.cover_url ? "" : "§"}</div>
-      <div class="t"><span class="mono muted">${fmtDate(n.created_at)}</span><h3>${esc(n.title)}</h3><p>${esc(n.summary)}</p></div></a>`).join("")
-    : `<div class="empty-state" style="grid-column:1/-1"><b>Скоро здесь будут материалы</b>Редакция готовит первые публикации.</div>`;
-  reveal();
+  const { news } = await getIndex();
+  const list = news.filter(n => n.kind === kind);
+  $("#grid").innerHTML = list.length ? list.map(n => `<a class="ncard tilt reveal" href="news-item.html?id=${n.id}">
+      <span class="img" style="${n.cover_url ? `background-image:url('${esc(n.cover_url)}')` : ""}">${n.cover_url ? "" : (kind === "news" ? "§" : "✦")}</span>
+      <span class="nc-t"><span class="mono muted">${fmtDate(n.created_at)}</span><h3>${esc(n.title)}</h3><p>${esc(n.summary)}</p></span><span class="glare"></span></a>`).join("")
+    : `<div class="empty-state" style="grid-column:1/-1"><div class="es-ic">✦</div><b>${t("nw.empty")}</b>${t("nw.emptySub")}</div>`;
+  bindFx();
 })();
 </script>
 </body>

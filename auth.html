@@ -2,84 +2,99 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Вход и регистрация — Lawart</title>
+<meta name="description" content="Lawart.uz — электронный научный журнал юридических статей. Читайте исследования по праву Узбекистана и публикуйте свои статьи онлайн.">
+<meta property="og:title" content="Вход и регистрация — Lawart">
+<meta property="og:description" content="Научный журнал, где право становится искусством аргумента.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Lawart">
+<meta name="theme-color" content="#0b0c10">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>try{var th=localStorage.getItem('lawart-theme');if(th)document.documentElement.dataset.theme=th;var lg=localStorage.getItem('lawart-lang');if(lg)document.documentElement.lang=lg}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://xgwzpygoewtfeexraats.supabase.co">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
 <main class="auth-wrap">
-  <div class="auth-art">
-    <div class="big-sec">§</div>
-    <div><span class="mono" style="color:var(--brass)">Lawart · для авторов</span>
-      <h2 style="margin-top:16px">Публикуйте <i>право</i>,<br>а не просто пишите о нем</h2></div>
-    <blockquote>Один аккаунт, чтобы подать статью, следить за ее проверкой и общаться с редакцией.</blockquote>
+  <div class="auth-art night">
+    <div class="auth-orbit"><span></span><span></span><span></span><b>§</b></div>
+    <div><span class="kicker"><i></i><span data-t="auth.kicker"></span></span><h2 data-t="auth.artTitle"></h2></div>
+    <blockquote data-t="auth.quote"></blockquote>
   </div>
   <div class="auth-form">
-    <form id="f">
-      <div class="tabs"><button type="button" data-m="login">Вход</button><button type="button" data-m="signup">Регистрация</button><button type="button" data-m="reset">Забыли пароль</button></div>
+    <form id="f" novalidate>
+      <div class="tabs"><span class="pill"></span><button type="button" data-m="login" data-t="auth.login"></button><button type="button" data-m="signup" data-t="auth.signup"></button><button type="button" data-m="reset" data-t="auth.reset"></button></div>
       <div data-show="signup">
-        <label>ФИО полностью</label><input name="full_name" placeholder="Иванов Иван Иванович">
+        <label><span data-t="auth.fullName"></span></label><input name="full_name" data-tp="auth.fullNamePh" autocomplete="name">
         <div class="row2">
-          <div><label>Ученая степень <small>(если есть)</small></label><input name="degree" placeholder="к.ю.н., PhD, магистрант"></div>
-          <div><label>Должность</label><input name="position" placeholder="Студент, преподаватель, юрист"></div>
+          <div><label><span data-t="auth.degree"></span> <small data-t="auth.degreeHint"></small></label><input name="degree" data-tp="auth.degreePh"></div>
+          <div><label data-t="auth.position"></label><input name="position" data-tp="auth.positionPh"></div>
         </div>
-        <label>Место работы или учебы</label><input name="organization" placeholder="ТГЮУ, компания, адвокатское бюро">
-        <label>Телефон <small>(видит только редакция)</small></label><input name="phone" placeholder="+998">
+        <label data-t="auth.org"></label><input name="organization" data-tp="auth.orgPh">
+        <label><span data-t="auth.phone"></span> <small data-t="auth.phoneHint"></small></label><input name="phone" placeholder="+998" autocomplete="tel">
       </div>
-      <label>Email</label><input name="email" type="email" required autocomplete="email">
-      <div data-show="login signup"><label>Пароль</label><input name="password" type="password" minlength="6" autocomplete="current-password"></div>
+      <label data-t="auth.email"></label><input name="email" type="email" required autocomplete="email">
+      <div data-show="login signup"><label data-t="auth.password"></label><input name="password" type="password" minlength="6" autocomplete="current-password"></div>
       <div id="msg"></div>
-      <button class="btn red" style="width:100%;margin-top:20px" id="go">Войти</button>
-      <p class="muted" style="font-size:.85rem;margin-top:14px" data-show="signup">Регистрируясь, вы подтверждаете, что статья написана вами, и соглашаетесь на ее публикацию в открытом доступе после одобрения редакцией.</p>
+      <button class="btn red" style="width:100%;margin-top:22px" id="go"></button>
+      <p class="hint" data-show="signup" data-t="auth.consent"></p>
     </form>
   </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/key.js"></script>
 <script src="assets/config.js"></script>
+<script src="assets/i18n.js"></script>
 <script src="assets/app.js"></script>
 <script>
 (async () => {
-  await boot("");
+  await boot("", { noFooter: true, noBook: true });
   const next = qs("next") || "";
   if (ME.user) { location.href = next || (ME.profile?.is_admin ? "admin.html" : "cabinet.html"); return; }
   let mode = qs("mode") || "login";
-  const labels = { login: "Войти", signup: "Создать аккаунт", reset: "Прислать ссылку" };
+  const labels = { login: "auth.btnLogin", signup: "auth.btnSignup", reset: "auth.btnReset" };
   function setMode(m) {
     mode = m;
     $$(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.m === m));
+    const on = $(".tabs button.on"), pill = $(".tabs .pill");
+    pill.style.left = on.offsetLeft + "px"; pill.style.width = on.offsetWidth + "px";
     $$("[data-show]").forEach(el => el.classList.toggle("hidden", !el.dataset.show.split(" ").includes(m)));
-    $("#go").textContent = labels[m]; $("#msg").innerHTML = "";
-    $("[name=full_name]").required = m === "signup";
-    $("[name=password]").required = m !== "reset";
+    $("#go").textContent = t(labels[m]); $("#msg").innerHTML = "";
+    $("[name=password]").setAttribute("autocomplete", m === "signup" ? "new-password" : "current-password");
   }
   $$(".tabs button").forEach(b => b.onclick = () => setMode(b.dataset.m));
   setMode(mode);
+  addEventListener("resize", () => setMode(mode));
   $("#f").onsubmit = async e => {
     e.preventDefault();
     const fd = Object.fromEntries(new FormData(e.target));
+    const err = s => { $("#msg").innerHTML = `<div class="err">${esc(s)}</div>`; };
+    if (!/^\S+@\S+\.\S+$/.test(fd.email || "")) return err("Email?");
+    if (mode !== "reset" && (fd.password || "").length < 6) return err(t("auth.password") + ": 6+");
+    if (mode === "signup" && !(fd.full_name || "").trim()) return err(t("auth.fullName") + "?");
     const btn = $("#go"); btn.disabled = true; $("#msg").innerHTML = "";
     try {
       if (mode === "login") {
         const { error } = await sb.auth.signInWithPassword({ email: fd.email, password: fd.password });
-        if (error) throw new Error(error.message.includes("Invalid") ? "Неверный email или пароль" : error.message);
+        if (error) throw new Error(/Invalid/i.test(error.message) ? t("auth.wrong") : error.message);
       } else if (mode === "signup") {
         const { data, error } = await sb.auth.signUp({ email: fd.email, password: fd.password, options: {
           emailRedirectTo: location.href.replace(/[^/]*$/, "") + "cabinet.html",
-          data: { full_name: fd.full_name, degree: fd.degree, organization: fd.organization, position: fd.position, phone: fd.phone } } });
-        if (error) throw new Error(error.message.includes("registered") ? "Этот email уже зарегистрирован, войдите" : error.message);
-        if (!data.session) { $("#msg").innerHTML = `<div class="ok">Мы отправили письмо на ${esc(fd.email)}. Откройте его и подтвердите адрес, затем войдите.</div>`; btn.disabled = false; return; }
+          data: { full_name: fd.full_name.trim(), degree: fd.degree, organization: fd.organization, position: fd.position, phone: fd.phone } } });
+        if (error) throw new Error(/registered/i.test(error.message) ? t("auth.exists") : error.message);
+        if (!data.session) { $("#msg").innerHTML = `<div class="ok">${esc(t("auth.checkMail", { e: fd.email }))}</div>`; btn.disabled = false; return; }
+        confetti(innerWidth / 2, innerHeight / 3, 140);
       } else {
         const { error } = await sb.auth.resetPasswordForEmail(fd.email, { redirectTo: location.href.replace(/[^/]*$/, "") + "cabinet.html#password" });
         if (error) throw error;
-        $("#msg").innerHTML = `<div class="ok">Ссылка для смены пароля отправлена на почту.</div>`; btn.disabled = false; return;
+        $("#msg").innerHTML = `<div class="ok">${t("auth.resetSent")}</div>`; btn.disabled = false; return;
       }
       await loadMe();
-      location.href = next || (ME.profile?.is_admin ? "admin.html" : "cabinet.html");
-    } catch (err) { $("#msg").innerHTML = `<div class="err">${esc(err.message)}</div>`; btn.disabled = false; }
+      setTimeout(() => location.href = next || (ME.profile?.is_admin ? "admin.html" : "cabinet.html"), mode === "signup" ? 700 : 0);
+    } catch (er) { err(er.message); btn.disabled = false; }
   };
 })();
 </script>

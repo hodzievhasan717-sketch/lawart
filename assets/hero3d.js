@@ -1,4 +1,4 @@
-/* Lawart — 3D-сцена первого экрана: частицы складываются в шар, §, весы Фемиды и LEX */
+/* Lawart — 3D-сцена первого экрана: шар, §, весы Фемиды, LEX и раскрытая книга; клик меняет форму, в книге листает страницы */
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
 
 const SIZE = 240;
@@ -55,7 +55,36 @@ function shapes(n) {
     g.font = `700 104px ${serif}`; g.textAlign = "center"; g.textBaseline = "middle";
     g.fillText("LEX", SIZE / 2, SIZE / 2 + 4);
   }, n);
-  return [sphere(n), section, scales, lex];
+  return [sphere(n), section, scales, lex, book(n)];
+}
+
+// раскрытая книга: страницы изогнуты от корешка, по ним идут строки
+const PW = 1.55, PH = 1.05;
+const curve = x => .32 * Math.sqrt(Math.min(1, Math.abs(x) / PW)) - .06 * (Math.abs(x) / PW);
+function pagePoint(side) {
+  const ax = .04 + Math.random() * (PW - .04);
+  let y;
+  if (Math.random() < .72) {
+    const rows = 15, r = Math.floor(Math.random() * rows);
+    y = PH - .14 - r * ((2 * PH - .28) / (rows - 1)) + (Math.random() - .5) * .018;
+    if (ax > PW - .1 || ax < .14) y = (Math.random() * 2 - 1) * PH;
+  } else y = (Math.random() * 2 - 1) * PH;
+  const x = side * ax;
+  return [x, y, curve(x) + (Math.random() - .5) * .015];
+}
+function book(n) {
+  const out = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    let x, y, z;
+    const r = Math.random();
+    if (r < .06) { // корешок и обрез страниц
+      const side = Math.random() < .5 ? -1 : 1;
+      x = side * (PW + Math.random() * .05); y = (Math.random() * 2 - 1) * PH; z = curve(x) - Math.random() * .16;
+    } else if (r < .09) { x = (Math.random() - .5) * .05; y = (Math.random() * 2 - 1) * PH; z = -.05 - Math.random() * .08; }
+    else [x, y, z] = pagePoint(i % 2 ? 1 : -1);
+    out[i * 3] = x; out[i * 3 + 1] = y; out[i * 3 + 2] = z;
+  }
+  return out;
 }
 
 function sprite() {
@@ -131,7 +160,36 @@ export function initHero(canvas, opts = {}) {
   const dust = new THREE.Points(sgeo, smat);
   scene.add(dust);
 
-  let shapeIdx = 0, shapeT = 0;
+  // лист, который перелистывается в режиме книги
+  const BOOK = targets.length - 1;
+  const FN = mobile ? 700 : 1500;
+  const sheetBase = new Float32Array(FN * 3), sheetPos = new Float32Array(FN * 3);
+  for (let i = 0; i < FN; i++) { const q = pagePoint(1); sheetBase.set(q, i * 3); sheetPos.set(q, i * 3); }
+  const shgeo = new THREE.BufferGeometry();
+  shgeo.setAttribute("position", new THREE.BufferAttribute(sheetPos, 3));
+  const shmat = new THREE.PointsMaterial({ size: mobile ? .05 : .042, map: tex, color: new THREE.Color("#f4e2b4"), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 });
+  const sheet = new THREE.Points(shgeo, shmat);
+  pts.add(sheet);
+  let flipT = -1, flipQueue = 0;
+  function flipPage() { if (flipT < 0) flipT = 0; else flipQueue = Math.min(flipQueue + 1, 3); }
+  function updateSheet(dt) {
+    if (flipT < 0) { shmat.opacity += (0 - shmat.opacity) * .2; return; }
+    flipT += dt / .95;
+    const t = Math.min(1, flipT), e = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    const th = e * Math.PI;
+    for (let i = 0; i < FN; i++) {
+      const j = i * 3, x = sheetBase[j], f = x / PW;
+      const a = th + .5 * Math.sin(th) * f; // внешний край чуть отстает: лист изгибается
+      sheetPos[j] = x * Math.cos(a);
+      sheetPos[j + 1] = sheetBase[j + 1];
+      sheetPos[j + 2] = sheetBase[j + 2] + x * Math.sin(a) * .9;
+    }
+    shgeo.attributes.position.needsUpdate = true;
+    shmat.opacity = t < .08 ? t / .08 : t > .9 ? (1 - t) / .1 : 1;
+    if (flipT >= 1) { flipT = flipQueue > 0 ? 0 : -1; if (flipQueue > 0) flipQueue--; }
+  }
+
+  let shapeIdx = 0, shapeT = 0, idle = 0;
   const HOLD = 4.6;
   const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
   const onMove = e => { mouse.tx = (e.clientX / innerWidth - .5) * 2; mouse.ty = (e.clientY / innerHeight - .5) * 2; };
@@ -157,13 +215,15 @@ export function initHero(canvas, opts = {}) {
   io.observe(canvas);
   document.addEventListener("visibilitychange", () => { running = !document.hidden; if (running && !reduced) { last = performance.now(); loop(); } });
 
-  function setTarget(i) { shapeIdx = i % targets.length; shapeT = 0; }
+  function setTarget(i) { shapeIdx = i % targets.length; shapeT = 0; if (shapeIdx !== BOOK) { flipT = -1; flipQueue = 0; } }
   if (opts.onShape) opts.onShape(0);
 
   function frame(dt) {
     time += dt;
-    shapeT += dt;
-    if (!reduced && shapeT > HOLD) { setTarget(shapeIdx + 1); if (opts.onShape) opts.onShape(shapeIdx); }
+    shapeT += dt; idle += dt;
+    updateSheet(dt);
+    const hold = shapeIdx === BOOK ? HOLD * 2.2 : HOLD;
+    if (!reduced && shapeT > hold && idle > 14) { setTarget(shapeIdx + 1); if (opts.onShape) opts.onShape(shapeIdx); }
     const tgt = targets[shapeIdx];
     const p = geo.attributes.position.array;
     const k = Math.min(1, dt * 60);
@@ -175,9 +235,11 @@ export function initHero(canvas, opts = {}) {
     }
     geo.attributes.position.needsUpdate = true;
     mouse.x += (mouse.tx - mouse.x) * .05; mouse.y += (mouse.ty - mouse.y) * .05;
-    const spin = shapeIdx === 0 ? time * .25 : Math.sin(time * .35) * .32;
+    const isBook = shapeIdx === BOOK;
+    const spin = shapeIdx === 0 ? time * .25 : isBook ? Math.sin(time * .3) * .12 : Math.sin(time * .35) * .32;
     pts.rotation.y = spin + mouse.x * .35;
-    pts.rotation.x = mouse.y * .18;
+    const tilt = isBook ? -.62 : 0;
+    pts.rotation.x += (tilt + mouse.y * .18 - pts.rotation.x) * .06;
     orbit.rotation.z = time * .08;
     dust.rotation.y = time * .01 + mouse.x * .05;
     dust.position.y = -mouse.y * .15;
@@ -198,6 +260,30 @@ export function initHero(canvas, opts = {}) {
     renderer.render(scene, camera);
   } else loop();
 
+  // клик по фигуре: сменить форму, а в книге перелистнуть страницу
+  const v = new THREE.Vector3(), v2 = new THREE.Vector3();
+  function hit(e) {
+    const r = canvas.getBoundingClientRect();
+    if (e.clientY < r.top || e.clientY > r.bottom) return false;
+    group.getWorldPosition(v); v2.copy(v); v2.x += 1.75 * group.scale.x;
+    v.project(camera); v2.project(camera);
+    const cx = r.left + (v.x + 1) / 2 * r.width, cy = r.top + (1 - v.y) / 2 * r.height;
+    const rad = Math.abs((v2.x - v.x) / 2 * r.width);
+    return Math.hypot(e.clientX - cx, e.clientY - cy) < rad;
+  }
+  const next = () => { idle = 0; setTarget(shapeIdx + 1); if (opts.onShape) opts.onShape(shapeIdx); if (reduced) { for (let i = 0; i < pos.length; i++) pos[i] = targets[shapeIdx][i]; geo.attributes.position.needsUpdate = true; renderer.render(scene, camera); } };
+  const zone = canvas.parentElement;
+  zone.addEventListener("click", e => {
+    if (e.target.closest("a,button,input,textarea,select,label,form,.hs-res,.hero-stats")) return;
+    if (!hit(e)) return;
+    idle = 0;
+    if (shapeIdx === BOOK && shapeT > .8) flipPage(); else next();
+  });
+  zone.addEventListener("pointermove", e => {
+    if (e.target.closest("a,button,input,textarea,select,label,form")) { zone.style.cursor = ""; return; }
+    zone.style.cursor = hit(e) ? "pointer" : "";
+  }, { passive: true });
+
   canvas.classList.add("ready");
-  return { next: () => { setTarget(shapeIdx + 1); if (opts.onShape) opts.onShape(shapeIdx); } };
+  return { next, flip: flipPage, isBook: () => shapeIdx === BOOK };
 }

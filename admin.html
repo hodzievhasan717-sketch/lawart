@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://xgwzpygoewtfeexraats.supabase.co">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/style.css?v=20261120c">
+<link rel="stylesheet" href="assets/style.css?v=20261120d">
 </head>
 <body>
 <main class="wrap dash wide">
@@ -27,16 +27,16 @@
     <button data-v="rejected"><span>Отклоненные</span></button>
     <button data-v="upload"><span>+ Статья в архив</span></button>
     <button data-v="news"><span>Новости и интересное</span></button>
-    <button data-v="authors"><span>Авторы</span></button>
+    <button data-v="authors"><span>Пользователи</span><span class="cnt hidden" id="cntU"></span></button>
     <button id="logout"><span>Выйти</span></button>
   </aside>
   <section id="view"></section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/key.js"></script>
-<script src="assets/config.js?v=20261120c"></script>
-<script src="assets/i18n.js?v=20261120c"></script>
-<script src="assets/app.js?v=20261120c"></script>
+<script src="assets/config.js?v=20261120d"></script>
+<script src="assets/i18n.js?v=20261120d"></script>
+<script src="assets/app.js?v=20261120d"></script>
 <script>
 (async () => {
   if (!(await requireAuth())) return;
@@ -45,19 +45,19 @@
   $("#meName").textContent = ME.profile.full_name || ME.user.email;
   $("#logout").onclick = async () => { await sb.auth.signOut(); };
   let stopChat = null;
-  const V = { queue, inbox, published: () => listBy(["published"], "Опубликованные"), rejected: () => listBy(["rejected"], "Отклоненные"), upload, news, authors, detail };
+  const V = { user, queue, inbox, published: () => listBy(["published"], "Опубликованные"), rejected: () => listBy(["rejected"], "Отклоненные"), upload, news, authors, detail };
   $$(".side-nav [data-v]").forEach(b => b.onclick = () => go(b.dataset.v));
   function go(v, id, extra = "") {
     if (stopChat) { stopChat(); stopChat = null; }
-    $$(".side-nav [data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === (v === "detail" ? "queue" : v)));
-    history.replaceState(null, "", "admin.html" + (id ? "?a=" + id + extra : (v !== "queue" ? "#" + v : "")));
+    $$(".side-nav [data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === (v === "detail" ? "queue" : v === "user" ? "authors" : v)));
+    history.replaceState(null, "", "admin.html" + (v === "user" ? "?u=" + id : id ? "?a=" + id + extra : (v !== "queue" ? "#" + v : "")));
     V[v](id); scrollTo({ top: 0, behavior: "smooth" });
   }
   async function counts() {
     const { count } = await sb.from("articles").select("id", { count: "exact", head: true }).eq("status", "pending");
     $("#cntQ").textContent = count || 0; $("#cntQ").classList.toggle("hidden", !count);
-    const r = await sb.rpc("admin_threads");
-    const un = (r.data || []).reduce((s, x) => s + (x.unread || 0), 0);
+    const r = await sb.rpc("admin_threads"), r2 = await sb.rpc("admin_dm_threads");
+    const un = (r.data || []).reduce((s, x) => s + (x.unread || 0), 0) + (r2.data || []).reduce((s, x) => s + (x.unread || 0), 0);
     $("#cntM").textContent = un; $("#cntM").classList.toggle("hidden", !un);
   }
   counts(); setInterval(counts, 15000);
@@ -101,14 +101,18 @@
 
   async function inbox() {
     $("#view").innerHTML = `<div class="panel"><h2>Сообщения</h2><p class="muted">Все переписки с авторами. Откройте нужную, чтобы ответить.</p><div id="thr">Загрузка…</div></div>`;
-    const r = await sb.rpc("admin_threads");
-    const th = r.data || [];
-    $("#thr").innerHTML = th.length ? th.map(x => `<div class="thread ${x.unread ? "unread" : ""}" data-id="${x.article_id}">
+    const r = await sb.rpc("admin_threads"), r2 = await sb.rpc("admin_dm_threads");
+    const th = r.data || [], dms = r2.data || [];
+    const dmHtml = dms.map(x => `<div class="thread ${x.unread ? "unread" : ""}" data-u="${x.user_id}">
+        ${avatarHTML(x, "sm")}
+        <div><b>${esc(x.full_name || "Пользователь")} · личные сообщения</b><p>${x.last_from_user ? "" : "Вы: "}${esc(x.last_body || "")}</p></div>
+        <div style="text-align:right"><small class="muted">${fmtTime(x.last_at)}</small><br>${x.unread ? `<span class="cnt">${x.unread}</span>` : ""}</div></div>`).join("");
+    $("#thr").innerHTML = (dmHtml + th.map(x => `<div class="thread ${x.unread ? "unread" : ""}" data-id="${x.article_id}">
         <span class="avatar sm">${esc(initials(x.author_name || "?"))}</span>
         <div><b>${esc(x.author_name || "Автор")} · ${esc(x.title)}</b><p>${x.last_from_author ? "" : "Вы: "}${esc(x.last_body || (x.last_file ? "📄 " + x.last_file : ""))}</p></div>
-        <div style="text-align:right"><small class="muted">${fmtTime(x.last_at)}</small><br>${x.unread ? `<span class="cnt">${x.unread}</span>` : badge(x.status)}</div></div>`).join("")
-      : `<div class="empty-state" style="padding:40px"><b>Переписок пока нет</b>Откройте любую заявку и нажмите «Написать», чтобы задать автору вопрос.</div>`;
-    $$(".thread").forEach(x => x.onclick = () => go("detail", x.dataset.id, "&chat=1"));
+        <div style="text-align:right"><small class="muted">${fmtTime(x.last_at)}</small><br>${x.unread ? `<span class="cnt">${x.unread}</span>` : badge(x.status)}</div></div>`).join("")) || `<div class="empty-state" style="padding:40px"><b>Переписок пока нет</b>Откройте заявку и нажмите «Написать» или напишите пользователю в разделе «Пользователи».</div>`;
+    $$(".thread[data-id]").forEach(x => x.onclick = () => go("detail", x.dataset.id, "&chat=1"));
+    $$(".thread[data-u]").forEach(x => x.onclick = () => go("user", x.dataset.u));
   }
 
   async function detail(id) {
@@ -280,22 +284,76 @@
   }
 
   async function authors() {
-    const r = await sb.rpc("admin_people");
-    const ps = r.data || [];
-    $("#view").innerHTML = `<div class="panel"><div class="detail-head"><h2>Авторы</h2><button class="btn ghost sm" id="csv">Скачать CSV</button></div><p class="muted">Всего: ${ps.length}</p>
-      <div class="tbl-wrap"><table class="t"><tr><th>ФИО</th><th>Email и телефон</th><th>Степень, должность</th><th>Организация</th><th>Статей</th><th>Регистрация</th></tr>
-      ${ps.map(p => `<tr><td><b>${esc(p.full_name || "—")}</b>${p.is_admin ? " <span class='badge b-published'>редакция</span>" : ""}</td><td>${esc(p.email || "")}<br><span class="muted">${esc(p.phone || "")}</span></td><td>${esc([p.degree, p.position].filter(Boolean).join(", "))}</td><td>${esc(p.organization)}</td><td>${p.total} / ${p.published} опубл.</td><td>${fmtDate(p.created_at)}</td></tr>`).join("")}</table></div></div>`;
+    $("#view").innerHTML = `<div class="panel">Загрузка…</div>`;
+    const [r, st] = await Promise.all([sb.rpc("admin_people"), sb.rpc("admin_user_stats")]);
+    const ps = r.data || [], S = st.data || {};
+    const days = S.by_day || [], mx = Math.max(1, ...days.map(d => d.n));
+    $("#view").innerHTML = `<div class="panel"><div class="detail-head"><h2>Пользователи</h2><button class="btn ghost sm" id="csv">Скачать CSV</button></div>
+      <div class="kpis u-kpis">
+        <div class="kpi"><b>${num(S.total || ps.length)}</b><span>всего аккаунтов</span></div>
+        <div class="kpi"><b>${num(S.d1 || 0)}</b><span>за сутки</span></div>
+        <div class="kpi"><b>${num(S.d7 || 0)}</b><span>за 7 дней</span></div>
+        <div class="kpi"><b>${num(S.d30 || 0)}</b><span>за 30 дней</span></div>
+        <div class="kpi"><b>${num(S.authors || 0)}</b><span>подавали статьи</span></div>
+        <div class="kpi"><b>${num(S.public || 0)}</b><span>открытых профилей</span></div>
+      </div>
+      <h3 class="pf-h">Регистрации за 30 дней</h3>
+      <div class="ubars">${days.map(d => `<div class="ubar" title="${fmtShort(d.d)}: ${d.n}"><i style="height:${Math.max(3, d.n / mx * 100)}%"></i>${d.n ? `<b>${d.n}</b>` : ""}</div>`).join("")}</div>
+      <div class="ubar-axis mono"><span>${days[0] ? fmtShort(days[0].d) : ""}</span><span>сегодня</span></div>
+      <div class="u-tools"><input id="uq" placeholder="Поиск по имени, email, организации…"><select id="uf"><option value="">Все</option><option value="authors">Подавали статьи</option><option value="public">Открытый профиль</option><option value="new">Новые за 7 дней</option></select></div>
+      <div class="tbl-wrap"><table class="t u-t"><thead><tr><th></th><th>Пользователь</th><th>Контакты</th><th>Организация</th><th>Статьи</th><th>Регистрация</th><th></th></tr></thead><tbody id="ub"></tbody></table></div></div>`;
+    const paint = () => {
+      const q = norm($("#uq").value), f = $("#uf").value, wk = Date.now() - 7 * 864e5;
+      const list = ps.filter(p => (!q || norm([p.full_name, p.email, p.organization, p.phone, p.specialization].join(" ")).includes(q))
+        && (f !== "authors" || p.total > 0) && (f !== "public" || p.is_public) && (f !== "new" || new Date(p.created_at) > wk));
+      $("#ub").innerHTML = list.map(p => `<tr data-u="${p.id}"><td>${avatarHTML(p, "sm")}</td>
+        <td><b>${esc(p.full_name || "—")}</b>${p.is_admin ? " <span class='badge b-published'>редакция</span>" : ""}${p.is_public ? " <span class='badge b-revision'>профиль открыт</span>" : ""}<br><span class="muted small">${esc([p.specialization, p.degree, p.position].filter(Boolean).join(", "))}</span></td>
+        <td>${esc(p.email || "")}<br><span class="muted">${esc(p.phone || "")}</span></td><td>${esc(p.organization || "")}</td>
+        <td>${p.total} / ${p.published} опубл.</td><td>${fmtDate(p.created_at)}</td>
+        <td><button class="btn ghost sm" data-w="${p.id}">Написать</button></td></tr>`).join("") || `<tr><td colspan="7" class="muted">Никого не нашли</td></tr>`;
+      $$("#ub tr[data-u]").forEach(tr => tr.onclick = e => go("user", tr.dataset.u + (e.target.closest("[data-w]") ? "&w" : "")));
+    };
+    $("#uq").oninput = debounce(paint, 150); $("#uf").onchange = paint; paint();
     $("#csv").onclick = () => {
-      const head = ["ФИО", "Email", "Телефон", "Степень", "Должность", "Организация", "Статей", "Опубликовано", "Регистрация"];
-      const lines = [head, ...ps.map(p => [p.full_name, p.email, p.phone, p.degree, p.position, p.organization, p.total, p.published, fmtDate(p.created_at)])]
+      const head = ["ФИО", "Email", "Телефон", "Специализация", "Степень", "Должность", "Организация", "Профиль открыт", "Статей", "Опубликовано", "Регистрация"];
+      const lines = [head, ...ps.map(p => [p.full_name, p.email, p.phone, p.specialization, p.degree, p.position, p.organization, p.is_public ? "да" : "нет", p.total, p.published, fmtDate(p.created_at)])]
         .map(r => r.map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
-      const blob = new Blob(["﻿" + lines], { type: "text/csv;charset=utf-8" });
-      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "lawart-authors.csv"; a.click();
+      const blob = new Blob(["\ufeff" + lines], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "lawart-users.csv"; a.click();
     };
   }
 
+  async function user(arg) {
+    const [uid, w] = String(arg).split("&");
+    $("#view").innerHTML = `<div class="panel">Загрузка…</div>`;
+    const [{ data: p }, { data: arts }] = await Promise.all([sb.rpc("admin_person", { p_id: uid }),
+      sb.from("articles").select("id,title,status,created_at").eq("author_id", uid).order("created_at", { ascending: false })]);
+    if (!p) { $("#view").innerHTML = `<div class="panel">Пользователь не найден</div>`; return; }
+    const exp = Array.isArray(p.experience) ? p.experience : [], gal = Array.isArray(p.gallery) ? p.gallery : [];
+    $("#view").innerHTML = `<div class="adm-grid">
+      <div class="panel"><button class="btn ghost sm" id="back">← Все пользователи</button>
+        <div class="u-head">${avatarHTML(p, "xl")}<div><h2>${esc(p.full_name || "Без имени")}</h2><p class="muted">${esc([p.specialization, p.degree, p.position, p.organization, p.city].filter(Boolean).join(" · "))}</p>
+          <div class="actions">${p.is_public ? `<a class="btn ghost sm" href="profile.html?id=${p.id}" target="_blank">Публичный профиль</a>` : `<span class="badge b-pending">профиль скрыт</span>`}</div></div></div>
+        <dl class="u-dl"><dt>Email входа</dt><dd><a href="mailto:${esc(p.email)}">${esc(p.email)}</a></dd>
+          ${p.contact_email ? `<dt>Email для связи</dt><dd>${esc(p.contact_email)}</dd>` : ""}
+          ${p.phone ? `<dt>Телефон</dt><dd><a href="tel:${esc(p.phone)}">${esc(p.phone)}</a></dd>` : ""}
+          ${p.telegram ? `<dt>Telegram</dt><dd><a href="https://t.me/${esc(p.telegram.replace(/^@/, ""))}" target="_blank">${esc(p.telegram)}</a></dd>` : ""}
+          ${p.orcid ? `<dt>ORCID</dt><dd>${esc(p.orcid)}</dd>` : ""}
+          <dt>Регистрация</dt><dd>${fmtDate(p.created_at)}</dd></dl>
+        ${p.bio ? `<h3 class="pf-h">О себе</h3><p>${esc(p.bio)}</p>` : ""}
+        ${exp.length ? `<h3 class="pf-h">Опыт</h3><ol class="tl">${exp.map(x => `<li><span class="tl-dot"></span><small class="mono">${esc(x.period || "")}</small><b>${esc(x.role || "")}</b><span>${esc(x.org || "")}</span></li>`).join("")}</ol>` : ""}
+        ${gal.length ? `<h3 class="pf-h">Фото</h3><div class="pp-gal sm">${gal.map((u, i) => `<button class="pp-g" data-i="${i}" style="background-image:url('${esc(u)}')"></button>`).join("")}</div>` : ""}
+        <h3 class="pf-h">Статьи</h3>${arts && arts.length ? arts.map(a => `<p><a href="admin.html?a=${a.id}">№${pad(a.id)} ${esc(a.title)}</a> ${badge(a.status)}</p>`).join("") : `<p class="muted">Статей пока нет</p>`}
+      </div>
+      <div class="adm-chat" id="uChat"></div></div>`;
+    $("#back").onclick = () => go("authors");
+    $$(".pp-g").forEach(b => b.onclick = () => lightbox(gal, +b.dataset.i));
+    stopChat = mountChat($("#uChat"), {}, { dm: p.id, peer: p.full_name || p.email, focus: !!w, onSend: counts });
+    setTimeout(counts, 1500);
+  }
+
   const startId = qs("a"), h = location.hash.slice(1);
-  if (startId) go("detail", startId, qs("chat") ? "&chat=1" : ""); else if (V[h] && h !== "detail") go(h); else go("queue");
+  if (qs("u")) go("user", qs("u")); else if (startId) go("detail", startId, qs("chat") ? "&chat=1" : ""); else if (V[h] && h !== "detail") go(h); else go("queue");
 })();
 </script>
 </body>

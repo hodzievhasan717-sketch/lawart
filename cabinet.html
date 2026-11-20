@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://xgwzpygoewtfeexraats.supabase.co">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/style.css?v=20261120c">
+<link rel="stylesheet" href="assets/style.css?v=20261120d">
 </head>
 <body>
 <main class="wrap dash">
@@ -24,6 +24,7 @@
     <button data-v="list" class="on"><span data-t="cb.my"></span><span class="cnt hidden" id="cntUnread"></span></button>
     <button data-v="new"><span>+ <span data-t="cb.new"></span></span></button>
     <button data-v="profile"><span data-t="cb.profile"></span></button>
+    <button data-v="messages"><span data-t="dm.nav"></span><span class="cnt hidden" id="cntDm"></span></button>
     <button data-v="password"><span data-t="cb.password"></span></button>
     <button id="logout"><span data-t="cb.logout"></span></button>
   </aside>
@@ -31,9 +32,9 @@
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/key.js"></script>
-<script src="assets/config.js?v=20261120c"></script>
-<script src="assets/i18n.js?v=20261120c"></script>
-<script src="assets/app.js?v=20261120c"></script>
+<script src="assets/config.js?v=20261120d"></script>
+<script src="assets/i18n.js?v=20261120d"></script>
+<script src="assets/app.js?v=20261120d"></script>
 <script>
 (async () => {
   if (!(await requireAuth())) return;
@@ -44,7 +45,12 @@
   $("#logout").onclick = async () => { await sb.auth.signOut(); };
   let stopChat = null;
   $$(".side-nav [data-v]").forEach(b => b.onclick = () => go(b.dataset.v));
-  const VIEWS = { list, new: form, profile, password, detail };
+  const VIEWS = { list, new: form, profile, password, detail, messages };
+  async function dmCount() {
+    const { count } = await sb.from("dm").select("id", { count: "exact", head: true }).eq("user_id", ME.user.id).neq("sender_id", ME.user.id).is("read_at", null);
+    $("#cntDm").textContent = count || 0; $("#cntDm").classList.toggle("hidden", !count);
+  }
+  dmCount(); setInterval(dmCount, 15000);
 
   function go(v, id) {
     if (stopChat) { stopChat(); stopChat = null; }
@@ -202,20 +208,104 @@
     };
   }
 
+  function messages() {
+    $("#view").innerHTML = `<div class="panel"><h2>${t("dm.title")}</h2><p class="muted">${t("dm.hint")}</p><div id="dmBox"></div></div>`;
+    stopChat = mountChat($("#dmBox"), {}, { dm: ME.user.id, peer: t("ch.editorial"), focus: true, onSend: dmCount });
+    setTimeout(dmCount, 1500);
+  }
+
   function profile() {
-    $("#view").innerHTML = `<div class="panel"><h2>${t("cb.pTitle")}</h2><form id="pf">
+    const exp = Array.isArray(P.experience) ? P.experience.slice() : [];
+    let gallery = Array.isArray(P.gallery) ? P.gallery.slice() : [];
+    let photo = P.photo_url || "";
+    const pubUrl = "profile.html?id=" + ME.user.id;
+    $("#view").innerHTML = `<div class="panel pf-panel"><div class="detail-head"><h2>${t("cb.pTitle")}</h2><a class="btn ghost sm" href="${pubUrl}" target="_blank" rel="noopener">${t("pr.view")}</a></div>
+      <form id="pf">
+      <div class="pf-top">
+        <div class="pf-ava" id="avaBox" title="${t("pr.photo")}"><input type="file" id="avaIn" accept="image/*" class="hidden"><span id="avaImg"></span><button type="button" class="pf-ava-btn" id="avaBtn">${t("pr.changePhoto")}</button></div>
+        <div class="pf-pub">
+          <label class="switch-row"><span class="switch"><input type="checkbox" name="is_public" ${P.is_public ? "checked" : ""}><i></i></span><span><b>${t("pr.public")}</b><small>${t("pr.publicHint")}</small></span></label>
+        </div>
+      </div>
+      <h3 class="pf-h">${t("pr.secMain")}</h3>
       <label>${t("cb.pName")}</label><input name="full_name" value="${esc(P.full_name)}" required>
+      <div class="row2"><div><label>${t("pr.spec")}</label><input name="specialization" value="${esc(P.specialization)}" placeholder="${esc(t("pr.specPh"))}"></div><div><label>${t("pr.city")}</label><input name="city" value="${esc(P.city)}" placeholder="${esc(t("pr.cityPh"))}"></div></div>
       <div class="row2"><div><label>${t("cb.pDegree")}</label><input name="degree" value="${esc(P.degree)}"></div><div><label>${t("cb.pPosition")}</label><input name="position" value="${esc(P.position)}"></div></div>
       <label>${t("cb.pOrg")}</label><input name="organization" value="${esc(P.organization)}">
-      <div class="row2"><div><label>${t("cb.pOrcid")}</label><input name="orcid" value="${esc(P.orcid)}" placeholder="0000-0000-0000-0000"></div><div><label>${t("cb.pPhone")}</label><input name="phone" value="${esc(P.phone)}"></div></div>
-      <label>Email</label><input value="${esc(ME.user.email)}" disabled>
-      <button class="btn red" style="margin-top:20px">${t("c.save")}</button></form></div>`;
+      <label>${t("pr.bio")}</label><textarea name="bio" rows="5" maxlength="2000" placeholder="${esc(t("pr.bioPh"))}">${esc(P.bio)}</textarea>
+      <label>${t("cb.pOrcid")}</label><input name="orcid" value="${esc(P.orcid)}" placeholder="0000-0000-0000-0000">
+
+      <h3 class="pf-h">${t("pr.secExp")}</h3><p class="muted">${t("pr.expHint")}</p>
+      <div id="expList" class="exp-list"></div>
+      <button type="button" class="btn ghost sm" id="expAdd">+ ${t("pr.expAdd")}</button>
+
+      <h3 class="pf-h">${t("pr.secGal")}</h3><p class="muted">${t("pr.galHint")}</p>
+      <div class="gal-edit" id="galEdit"></div><input type="file" id="galIn" accept="image/*" multiple class="hidden">
+
+      <h3 class="pf-h">${t("pr.secContacts")}</h3><p class="muted">${t("pr.contactsHint")}</p>
+      <div class="ct-row"><div><label>${t("pr.cEmail")}</label><input name="contact_email" type="email" value="${esc(P.contact_email || "")}" placeholder="${esc(ME.user.email)}"></div><label class="switch-row sm"><span class="switch"><input type="checkbox" name="show_email" ${P.show_email ? "checked" : ""}><i></i></span><span>${t("pr.show")}</span></label></div>
+      <div class="ct-row"><div><label>${t("cb.pPhone")}</label><input name="phone" value="${esc(P.phone || "")}" placeholder="+998"></div><label class="switch-row sm"><span class="switch"><input type="checkbox" name="show_phone" ${P.show_phone ? "checked" : ""}><i></i></span><span>${t("pr.show")}</span></label></div>
+      <div class="ct-row"><div><label>Telegram</label><input name="telegram" value="${esc(P.telegram || "")}" placeholder="@username"></div><label class="switch-row sm"><span class="switch"><input type="checkbox" name="show_telegram" ${P.show_telegram ? "checked" : ""}><i></i></span><span>${t("pr.show")}</span></label></div>
+      <label>${t("pr.loginEmail")}</label><input value="${esc(ME.user.email)}" disabled>
+      <div class="pf-save"><button class="btn red">${t("c.save")}</button></div></form></div>`;
+
+    const paintAva = () => { $("#avaImg").innerHTML = avatarHTML({ full_name: P.full_name || ME.user.email, photo_url: photo }, "xl"); };
+    paintAva();
+    $("#avaBtn").onclick = () => $("#avaIn").click();
+    $("#avaImg").onclick = () => $("#avaIn").click();
+    $("#avaIn").onchange = async () => {
+      const f = $("#avaIn").files[0]; if (!f) return;
+      $("#avaBox").classList.add("busy");
+      try { photo = await uploadPhoto(f, 640); paintAva(); toast(t("pr.photoReady")); } catch (e) { toast(e.message); }
+      $("#avaBox").classList.remove("busy"); $("#avaIn").value = "";
+    };
+
+    const paintExp = () => {
+      $("#expList").innerHTML = exp.map((x, i) => `<div class="exp-item" data-i="${i}">
+        <input data-k="period" value="${esc(x.period || "")}" placeholder="${esc(t("pr.expPeriod"))}">
+        <input data-k="role" value="${esc(x.role || "")}" placeholder="${esc(t("pr.expRole"))}">
+        <input data-k="org" value="${esc(x.org || "")}" placeholder="${esc(t("pr.expOrg"))}">
+        <button type="button" class="icon-btn sm" aria-label="×">×</button></div>`).join("") || `<p class="muted small">${t("pr.expEmpty")}</p>`;
+      $$("#expList .exp-item").forEach(r => {
+        const i = +r.dataset.i;
+        $$("input", r).forEach(inp => inp.oninput = () => { exp[i][inp.dataset.k] = inp.value; });
+        $("button", r).onclick = () => { exp.splice(i, 1); paintExp(); };
+      });
+    };
+    paintExp();
+    $("#expAdd").onclick = () => { if (exp.length >= 12) return; exp.push({ period: "", role: "", org: "" }); paintExp(); $$("#expList .exp-item input").slice(-3)[0]?.focus(); };
+
+    const paintGal = () => {
+      $("#galEdit").innerHTML = gallery.map((u, i) => `<div class="gal-th" style="background-image:url('${esc(u)}')"><button type="button" data-i="${i}" aria-label="×">×</button></div>`).join("")
+        + (gallery.length < 8 ? `<button type="button" class="gal-add" id="galAdd"><b>+</b>${t("pr.galAdd")}</button>` : "");
+      $$("#galEdit .gal-th button").forEach(b => b.onclick = () => { gallery.splice(+b.dataset.i, 1); paintGal(); });
+      const ga = $("#galAdd"); if (ga) ga.onclick = () => $("#galIn").click();
+    };
+    paintGal();
+    $("#galIn").onchange = async () => {
+      const fs = [...$("#galIn").files].slice(0, 8 - gallery.length);
+      if (!fs.length) return;
+      const ga = $("#galAdd"); if (ga) ga.classList.add("busy");
+      for (const f of fs) { try { gallery.push(await uploadPhoto(f, 1400)); } catch (e) { toast(e.message); } }
+      $("#galIn").value = ""; paintGal();
+    };
+
     $("#pf").onsubmit = async e => {
       e.preventDefault();
       const fd = Object.fromEntries(new FormData(e.target));
-      const { error } = await sb.from("profiles").update(fd).eq("id", ME.user.id);
+      const row = {
+        full_name: fd.full_name.trim(), degree: fd.degree, position: fd.position, organization: fd.organization, orcid: fd.orcid,
+        specialization: fd.specialization, city: fd.city, bio: fd.bio, phone: fd.phone, contact_email: fd.contact_email.trim(), telegram: fd.telegram.trim(),
+        is_public: !!fd.is_public, show_email: !!fd.show_email, show_phone: !!fd.show_phone, show_telegram: !!fd.show_telegram,
+        photo_url: photo, gallery, experience: exp.filter(x => (x.role || x.org || x.period || "").trim())
+      };
+      const btn = $(".pf-save .btn"); btn.disabled = true;
+      const { error } = await sb.from("profiles").update(row).eq("id", ME.user.id);
+      btn.disabled = false;
       if (error) return toast(error.message);
-      await loadMe(); Object.assign(P, ME.profile || {}); $("#meName").textContent = P.full_name; toast(t("cb.pSaved"));
+      await loadMe(); Object.assign(P, ME.profile || {}); $("#meName").textContent = P.full_name; paintUser();
+      toast(row.is_public ? t("pr.savedPublic") : t("cb.pSaved"));
+      if (row.is_public) confetti(innerWidth / 2, innerHeight / 3, 40);
     };
   }
 
@@ -236,9 +326,9 @@
 
   const startId = qs("a"), hash = location.hash.slice(1);
   if (startId) go("detail", startId);
-  else if (["new", "profile", "password"].includes(hash)) go(hash);
+  else if (["new", "profile", "password", "messages"].includes(hash)) go(hash);
   else go("list");
-  addEventListener("hashchange", () => { const h = location.hash.slice(1); if (["new", "profile", "password"].includes(h)) go(h); });
+  addEventListener("hashchange", () => { const h = location.hash.slice(1); if (["new", "profile", "password", "messages"].includes(h)) go(h); });
 })();
 </script>
 </body>

@@ -2,13 +2,15 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 <url><loc>https://lawart.uz/</loc><lastmod>2026-11-20</lastmod></url>
 <url><loc>https://lawart.uz/articles.html</loc><lastmod>2026-11-20</lastmod></url>
-<url><loc>https://lawart.uz/news.html</loc><lastmod>2026-11-20</lastmod></url>
-<url><loc>https://lawart.uz/news.html?kind=interesting</loc><lastmod>2026-11-20</lastmod></url>
-<url><loc>https://lawart.uz/authors.html</loc><lastmod>2026-11-20</lastmod></url>
-<url><loc>https://lawart.uz/offer.html</loc><lastmod>2026-11-20</lastmod></url>
-<url><loc>https://lawart.uz/article.html?id=2</loc><lastmod>2026-11-20</lastmod></url>
-<url><loc>https://lawart.uz/news-item.html?id=1</loc><lastmod>2026-11-20</lastmod></url>
-<url><loc>https://lawart.uz/news-item.html?id=2</loc><lastmod>2026-11-20</lastmod></url>
-<url><loc>https://lawart.uz/news-item.html?id=3</loc><lastmod>2026-11-20</lastmod></url>
+<url><loc>https://lawart.uz/news.html</loc></url>
+<url><loc>https://lawart.uz/authors.html</loc></url>
+<url><loc>https://lawart.uz/offer.html</loc></url>
+<url><loc>https://lawart.uz/a/3.html</loc><lastmod>2026-11-20</lastmod></url>
+<url><loc>https://lawart.uz/a/4.html</loc><lastmod>2026-11-20</lastmod></url>
+<url><loc>https://lawart.uz/a/5.html</loc><lastmod>2026-11-20</lastmod></url>
+<url><loc>https://lawart.uz/a/2.html</loc><lastmod>2026-11-20</lastmod></url>
 <url><loc>https://lawart.uz/news-item.html?id=4</loc><lastmod>2026-11-20</lastmod></url>
+<url><loc>https://lawart.uz/news-item.html?id=3</loc><lastmod>2026-11-20</lastmod></url>
+<url><loc>https://lawart.uz/news-item.html?id=2</loc><lastmod>2026-11-20</lastmod></url>
+<url><loc>https://lawart.uz/news-item.html?id=1</loc><lastmod>2026-11-20</lastmod></url>
 </urlset>

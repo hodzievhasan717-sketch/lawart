@@ -1,0 +1,50 @@
+name: Индексация статей
+
+on:
+  schedule:
+    - cron: "17 */2 * * *"   # каждые 2 часа
+  workflow_dispatch:          # ручной запуск кнопкой Run workflow
+
+permissions:
+  contents: write
+
+concurrency:
+  group: seo
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Страницы статей и sitemap
+        run: node tools/seo-build.mjs
+
+      - name: Сохранить изменения
+        id: commit
+        run: |
+          git add -A a sitemap.xml
+          if git diff --cached --quiet; then
+            echo "changed=no" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "hodzievhasan717-sketch"
+          git config user.email "hodzievhasan717-sketch@users.noreply.github.com"
+          git commit -m "Обновление страниц статей и sitemap"
+          git push
+          echo "changed=yes" >> "$GITHUB_OUTPUT"
+
+      - name: Сообщить Яндексу и Bing (IndexNow)
+        if: steps.commit.outputs.changed == 'yes'
+        run: |
+          sleep 90
+          URLS=$(grep -v '^$' .seo-changed | head -1000 | jq -R . | jq -s -c .)
+          curl -s -o /dev/null -w "IndexNow: %{http_code}\n" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            -d "{\"host\":\"lawart.uz\",\"key\":\"6f1c2a9e4b7d48e3a0c5f2d8b1e9a7c4\",\"keyLocation\":\"https://lawart.uz/6f1c2a9e4b7d48e3a0c5f2d8b1e9a7c4.txt\",\"urlList\":$URLS}" \
+            https://api.indexnow.org/indexnow || true

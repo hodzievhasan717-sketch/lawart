@@ -46,6 +46,7 @@
     return;
   }
   document.title = a.title + " — Lawart";
+  if (a.status === "published") { const c = document.createElement("link"); c.rel = "canonical"; c.href = "https://lawart.uz/a/" + a.id + ".html"; document.head.appendChild(c); }
   if (a.status === "published") {
     const k = "lawart-v-" + id + "-" + new Date().toDateString();
     try { if (!localStorage.getItem(k)) { sb.rpc("add_view", { a_id: id }).then(() => { }); localStorage.setItem(k, "1"); } } catch (e) { }

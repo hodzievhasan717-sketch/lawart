@@ -102,7 +102,7 @@
     const f = $("#first"); if (f) f.onclick = () => go("new");
   }
 
-  const rubricOptions = sel => RUBRIC_NAMES.map(r => `<option value="${esc(r)}" ${r === sel ? "selected" : ""}>${esc(rubricName(r))}</option>`).join("");
+  const rubricOptions = sel => rubricSelect(sel);
   const langOptions = sel => Object.entries(LANGS).map(([k, v]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${v}</option>`).join("");
 
   function offerGate() {

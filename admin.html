@@ -236,7 +236,7 @@
     $("#view").innerHTML = `<div class="panel"><h2>Статья в архив</h2><p class="muted">Готовая статья сразу попадает в открытый архив, без проверки. Обложка и число страниц берутся из PDF автоматически.</p><form id="uf">
       <label>Название</label><input name="title" required>
       <label>Авторы <small>(ФИО, степень, организация; соавторов через точку с запятой)</small></label><input name="authors" required>
-      <div class="row2"><div><label>Направление</label><select name="category">${RUBRIC_NAMES.map(r => `<option>${esc(r)}</option>`).join("")}</select></div>
+      <div class="row2"><div><label>Направление</label><select name="category">${rubricSelect()}</select></div>
       <div><label>Язык</label><select name="lang">${Object.entries(LANGS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div></div>
       <label>Аннотация</label><textarea name="abstract"></textarea>
       <label>Ключевые слова</label><input name="keywords">

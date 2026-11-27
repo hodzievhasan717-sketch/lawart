@@ -762,24 +762,29 @@ async function uploadPaper(file, ownerId) {
 }
 const fileSize = b => b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
 
-/* ---------- чат по статье ---------- */
+/* ---------- единый чат автора с редакцией ----------
+   Вся переписка с одним автором показывается в одной ленте: личные сообщения (dm)
+   и сообщения по всем его статьям (messages). Отправка из карточки статьи идет
+   в ветку этой статьи, из раздела «Сообщения» — в личную переписку. */
 function mountChat(box, article, opts = {}) {
-  const DM = opts.dm || null; // личная переписка: id пользователя
-  const TB = DM ? "dm" : "messages", KEY = DM ? "user_id" : "article_id", VAL = DM || article.id;
-  const isAuthor = DM ? DM === ME.user.id : article.author_id === ME.user.id;
+  const DM = opts.dm || null;
+  const U = DM || article.author_id || null; // чей это чат
+  const isAuthor = U ? U === ME.user.id : article.author_id === ME.user.id;
+  const AID = DM ? null : article.id; // куда пишем
   const peer = opts.peer || (isAuthor ? t("ch.editorial") : t("ch.author"));
+  const sub = U ? (isAuthor ? t("ch.allAuthor") : t("ch.allAdmin")) : t("ch.thread", { n: pad(article.id) });
   box.innerHTML = `<div class="chat">
-    <div class="chat-head"><span class="avatar sm">${esc(initials(peer))}</span><span class="ch-who"><b>${esc(peer)}</b><small>${DM ? t("dm.sub") : isAuthor ? t("ch.aboutYour") : t("ch.thread", { n: pad(article.id) })}</small></span><span class="live"><i></i>${t("ch.live")}</span></div>
+    <div class="chat-head"><span class="avatar sm">${esc(initials(peer))}</span><span class="ch-who"><b>${esc(peer)}</b><small>${sub}</small></span><span class="live"><i></i>${t("ch.live")}</span></div>
     <div class="chat-body" id="chatBody"><div class="chat-empty">${t("c.loading")}</div></div>
     <form class="chat-form" id="chatForm">
       <input type="file" id="chatFile" class="hidden">
-      <button type="button" class="attach${DM ? " hidden" : ""}" title="${t("ch.attach")}" aria-label="${t("ch.attach")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/></svg></button>
+      <button type="button" class="attach${AID ? "" : " hidden"}" title="${t("ch.attach")}" aria-label="${t("ch.attach")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/></svg></button>
       <div class="chat-input"><div class="att hidden" id="chatAtt"></div><textarea id="chatText" rows="1" placeholder="${esc(isAuthor ? t("ch.phAuthor") : t("ch.phAdmin"))}"></textarea></div>
       <button class="btn red send" aria-label="${t("ch.send")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg></button>
     </form>
   </div>`;
   const body = $("#chatBody", box), ta = $("#chatText", box), fileIn = $("#chatFile", box), att = $("#chatAtt", box);
-  let lastSig = "", timer;
+  let lastSig = "", timer, titles = {};
   const urls = {};
   const grow = () => { ta.style.height = "auto"; ta.style.height = Math.min(160, ta.scrollHeight) + "px"; };
   ta.addEventListener("input", grow);
@@ -790,10 +795,28 @@ function mountChat(box, article, opts = {}) {
     att.innerHTML = f ? `📎 ${esc(f.name)} · ${fileSize(f.size)} <button type="button" aria-label="${t("ch.removeFile")}">×</button>` : "";
     if (f) $("button", att).onclick = () => { fileIn.value = ""; fileIn.onchange(); };
   };
+  async function fetchAll() {
+    if (!U) {
+      const r = await sb.from("messages").select("*").eq("article_id", article.id).order("created_at");
+      return r.error ? null : r.data.map(m => ({ ...m, _tb: "messages" }));
+    }
+    const ar = await sb.from("articles").select("id,title").eq("author_id", U);
+    const ids = (ar.data || []).map(a => a.id);
+    if (AID && !ids.includes(AID)) ids.push(AID);
+    titles = {}; (ar.data || []).forEach(a => titles[a.id] = a.title);
+    if (AID && !titles[AID]) titles[AID] = article.title || "";
+    const [d, m] = await Promise.all([
+      sb.from("dm").select("*").eq("user_id", U),
+      ids.length ? sb.from("messages").select("*").in("article_id", ids) : Promise.resolve({ data: [] })
+    ]);
+    if (d.error && m.error) return null;
+    return [...(d.data || []).map(x => ({ ...x, _tb: "dm" })), ...(m.data || []).map(x => ({ ...x, _tb: "messages" }))]
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  }
   async function load() {
-    const { data, error } = await sb.from(TB).select("*").eq(KEY, VAL).order("created_at");
-    if (error) return;
-    const sig = data.map(m => m.id + ":" + (m.read_at ? 1 : 0)).join(",");
+    const data = await fetchAll();
+    if (!data) return;
+    const sig = data.map(m => m._tb[0] + m.id + ":" + (m.read_at ? 1 : 0)).join(",");
     if (sig === lastSig) return;
     lastSig = sig;
     if (!data.length) {
@@ -801,35 +824,44 @@ function mountChat(box, article, opts = {}) {
       return;
     }
     for (const m of data) if (m.file_path && !urls[m.file_path]) urls[m.file_path] = await signedUrl("chat", m.file_path, 3600 * 6);
-    let day = "", html = "";
+    let day = "", ctx = undefined, html = "";
     for (const m of data) {
       const d = LANG === "uz" ? uzDate(m.created_at).replace(/ \d{4}$/, "") : new Date(m.created_at).toLocaleDateString(LOCALE, { day: "numeric", month: "long" });
-      if (d !== day) { html += `<div class="chat-day"><span>${d}</span></div>`; day = d; }
+      if (d !== day) { html += `<div class="chat-day"><span>${d}</span></div>`; day = d; ctx = undefined; }
+      const c = m._tb === "messages" ? m.article_id : null;
+      if (U && c !== ctx) {
+        html += `<div class="chat-ctx">${c ? `${t("ch.about")} №${pad(c)}${titles[c] ? " · " + esc(String(titles[c]).slice(0, 70)) : ""}` : t("ch.general")}</div>`;
+        ctx = c;
+      }
       const mine = m.sender_id === ME.user.id;
       html += `<div class="msg ${mine ? "mine" : ""}">${m.body ? esc(m.body) : ""}${m.file_path ? `<a class="msg-file" href="${urls[m.file_path]}" target="_blank" rel="noopener">📄 ${esc(m.file_name || t("ch.file"))}</a>` : ""}<small>${mine ? t("ch.you") : (isAuthor ? t("ch.editor") : t("ch.author"))} · ${hm(m.created_at)}${mine ? " · " + (m.read_at ? t("ch.read") : t("ch.delivered")) : ""}</small></div>`;
     }
     const atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 80;
     body.innerHTML = html;
     if (atBottom || !body.dataset.init) { body.scrollTop = body.scrollHeight; body.dataset.init = 1; }
-    const unread = data.filter(m => m.sender_id !== ME.user.id && !m.read_at).map(m => m.id);
-    if (unread.length) await sb.from(TB).update({ read_at: new Date().toISOString() }).in("id", unread);
+    const unread = data.filter(m => m.sender_id !== ME.user.id && !m.read_at);
+    const now = new Date().toISOString();
+    for (const tb of ["dm", "messages"]) {
+      const ids = unread.filter(m => m._tb === tb).map(m => m.id);
+      if (ids.length) await sb.from(tb).update({ read_at: now }).in("id", ids);
+    }
   }
   $("#chatForm", box).onsubmit = async e => {
     e.preventDefault();
     const text = ta.value.trim(), file = fileIn.files[0];
     if (!text && !file) return;
-    if (DM && !text) return;
+    if (!AID && !text) return;
     const btn = $(".send", box); btn.disabled = true;
     try {
       let file_path = null, file_name = null;
-      if (file) {
+      if (file && AID) {
         if (file.size > 20 * 1024 * 1024) throw new Error(t("ch.big"));
-        file_path = `${article.id}/${safeName(file.name)}`; file_name = file.name;
+        file_path = `${AID}/${safeName(file.name)}`; file_name = file.name;
         const { error } = await sb.storage.from("chat").upload(file_path, file);
         if (error) throw error;
       }
-      const { error } = DM ? await sb.from("dm").insert({ user_id: DM, sender_id: ME.user.id, body: text })
-        : await sb.from("messages").insert({ article_id: article.id, sender_id: ME.user.id, body: text, file_path, file_name });
+      const { error } = AID ? await sb.from("messages").insert({ article_id: AID, sender_id: ME.user.id, body: text, file_path, file_name })
+        : await sb.from("dm").insert({ user_id: DM, sender_id: ME.user.id, body: text });
       if (error) throw error;
       ta.value = ""; grow(); fileIn.value = ""; fileIn.onchange();
       await load(); body.scrollTop = body.scrollHeight;

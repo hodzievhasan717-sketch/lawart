@@ -43,7 +43,7 @@ ru: {
   "stat.articles": ["статья", "статьи", "статей"], "stat.authors": ["автор", "автора", "авторов"], "stat.rubrics": ["направление", "направления", "направлений"], "stat.reads": ["прочтение", "прочтения", "прочтений"],
   "stat.lArticles": "статей в архиве", "stat.lAuthors": "авторов", "stat.lRubrics": "направлений права", "stat.lReads": "прочтений",
   "sec.featured": "Выбор редакции", "sec.latest": "Свежие публикации", "sec.archive": "Весь архив", "sec.rubrics": "Направления",
-  "sec.rubricsSub": "Пятнадцать отраслей права. Выберите свою, и мы покажем все статьи по теме.", "rb.empty": "Ждет первых авторов",
+  "sec.rubricsSub": "Пятнадцать отраслей права и десять направлений других наук. Выберите свое, и мы покажем все статьи по теме.", "rg.law": "Право", "rg.sci": "Другие науки", "rb.empty": "Ждет первых авторов",
   "sec.maxim": "Латинская максима дня", "maxim.prev": "Предыдущая", "maxim.next": "Следующая", "maxim.listen": "Произнести",
   "sec.how": "Как опубликоваться", "sec.howLink": "Требования к статьям",
   "step1.t": "Регистрация", "step1.p": "Создайте аккаунт автора: ФИО, ученая степень, место работы или учебы.",
@@ -149,7 +149,7 @@ uz: {
   "stat.articles": ["maqola"], "stat.authors": ["muallif"], "stat.rubrics": ["yo‘nalish"], "stat.reads": ["o‘qish"],
   "stat.lArticles": "arxivdagi maqolalar", "stat.lAuthors": "mualliflar", "stat.lRubrics": "huquq yo‘nalishlari", "stat.lReads": "o‘qishlar",
   "sec.featured": "Tahririyat tanlovi", "sec.latest": "Yangi nashrlar", "sec.archive": "Butun arxiv", "sec.rubrics": "Yo‘nalishlar",
-  "sec.rubricsSub": "Huquqning o‘n besh sohasi. O‘zingiznikini tanlang, mavzu bo‘yicha barcha maqolalarni ko‘rsatamiz.", "rb.empty": "Birinchi mualliflarni kutmoqda",
+  "sec.rubricsSub": "Huquqning o‘n besh sohasi va boshqa fanlarning o‘nta yo‘nalishi. O‘zingiznikini tanlang, mavzu bo‘yicha barcha maqolalarni ko‘rsatamiz.", "rg.law": "Huquq", "rg.sci": "Boshqa fanlar", "rb.empty": "Birinchi mualliflarni kutmoqda",
   "sec.maxim": "Kunning lotincha maksimasi", "maxim.prev": "Oldingi", "maxim.next": "Keyingi", "maxim.listen": "Talaffuz",
   "sec.how": "Qanday nashr etiladi", "sec.howLink": "Maqolaga talablar",
   "step1.t": "Ro‘yxatdan o‘tish", "step1.p": "Muallif akkauntini yarating: F.I.Sh., ilmiy daraja, ish yoki o‘qish joyi.",
@@ -255,7 +255,7 @@ en: {
   "stat.articles": ["article", "articles"], "stat.authors": ["author", "authors"], "stat.rubrics": ["field", "fields"], "stat.reads": ["read", "reads"],
   "stat.lArticles": "articles in the archive", "stat.lAuthors": "authors", "stat.lRubrics": "fields of law", "stat.lReads": "reads",
   "sec.featured": "Editor's choice", "sec.latest": "Latest publications", "sec.archive": "Full archive", "sec.rubrics": "Fields of law",
-  "sec.rubricsSub": "Fifteen branches of law. Pick yours and we will show every article on the topic.", "rb.empty": "Awaiting its first authors",
+  "sec.rubricsSub": "Fifteen branches of law and ten fields of other sciences. Pick yours and we will show every article on the topic.", "rg.law": "Law", "rg.sci": "Other sciences", "rb.empty": "Awaiting its first authors",
   "sec.maxim": "Latin maxim of the day", "maxim.prev": "Previous", "maxim.next": "Next", "maxim.listen": "Pronounce",
   "sec.how": "How to get published", "sec.howLink": "Submission guidelines",
   "step1.t": "Sign up", "step1.p": "Create an author account: full name, academic degree, place of work or study.",
@@ -346,7 +346,17 @@ const RUBRIC_I18N = {
   "Спортивное право": { uz: ["Sport huquqi", "Sport shartnomalari, lex sportiva, sport halolligi"], en: ["Sports Law", "Sports contracts, lex sportiva, integrity in sport"] },
   "Цифровое право и LegalTech": { uz: ["Raqamli huquq va LegalTech", "Ma’lumotlar, sun’iy intellekt, smart-kontraktlar"], en: ["Digital Law and LegalTech", "Data, artificial intelligence, smart contracts"] },
   "Противодействие коррупции": { uz: ["Korrupsiyaga qarshi kurash", "Korrupsiyaga qarshi standartlar, komplayens, javobgarlik"], en: ["Anti-Corruption", "Anti-corruption standards, compliance, liability"] },
-  "Судебная практика": { uz: ["Sud amaliyoti", "Sud qarorlari va huquqiy pozitsiyalar tahlili"], en: ["Case Law", "Analysis of court decisions and legal positions"] }
+  "Судебная практика": { uz: ["Sud amaliyoti", "Sud qarorlari va huquqiy pozitsiyalar tahlili"], en: ["Case Law", "Analysis of court decisions and legal positions"] },
+  "Экономика и финансы": { uz: ["Iqtisodiyot va moliya", "Bozorlar, moliya, soliqlar, iqtisodiy siyosat"], en: ["Economics and Finance", "Markets, finance, taxation, economic policy"] },
+  "Политология и международные отношения": { uz: ["Siyosatshunoslik va xalqaro munosabatlar", "Davlat, hokimiyat, saylovlar, tashqi siyosat"], en: ["Political Science and International Relations", "State, power, elections, foreign policy"] },
+  "Социология": { uz: ["Sotsiologiya", "Jamiyat, ijtimoiy guruhlar, so‘rovlar va tadqiqotlar"], en: ["Sociology", "Society, social groups, surveys and research"] },
+  "Психология": { uz: ["Psixologiya", "Shaxs, xulq-atvor, motivatsiya, mehnat psixologiyasi"], en: ["Psychology", "Personality, behaviour, motivation, work psychology"] },
+  "Педагогика и образование": { uz: ["Pedagogika va ta’lim", "O‘qitish metodikasi, oliy ta’lim, ta’lim texnologiyalari"], en: ["Pedagogy and Education", "Teaching methods, higher education, educational technology"] },
+  "Философия": { uz: ["Falsafa", "Etika, mantiq, huquq va fan falsafasi"], en: ["Philosophy", "Ethics, logic, philosophy of law and science"] },
+  "История": { uz: ["Tarix", "Davlat, jamiyat va madaniyat tarixi"], en: ["History", "History of the state, society and culture"] },
+  "Филология и лингвистика": { uz: ["Filologiya va lingvistika", "Til, adabiyot, tarjima, terminologiya"], en: ["Philology and Linguistics", "Language, literature, translation, terminology"] },
+  "Медицина и здравоохранение": { uz: ["Tibbiyot va sog‘liqni saqlash", "Jamoat salomatligi, sog‘liqni saqlashni tashkil etish, bioetika"], en: ["Medicine and Healthcare", "Public health, healthcare management, bioethics"] },
+  "Информационные технологии": { uz: ["Axborot texnologiyalari", "Dasturlash, ma’lumotlar, kiberxavfsizlik, sun’iy intellekt"], en: ["Information Technology", "Programming, data, cybersecurity, AI"] }
 };
 
 const MAXIM_I18N = {

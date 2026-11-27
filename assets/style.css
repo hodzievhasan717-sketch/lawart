@@ -366,6 +366,7 @@ a:hover .cv-shine,.feature:hover .cv-shine{transform:translateX(100%)}
 
 /* Направления */
 .rubrics{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--line);border-left:1px solid var(--line)}
+.rb-group{grid-column:1/-1;padding:22px 22px 14px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);font:700 .78rem var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .rb{position:relative;padding:26px 22px 24px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);text-decoration:none;min-height:200px;display:flex;flex-direction:column;overflow:hidden;transition:color .35s}
 .rb::before{content:"";position:absolute;inset:0;background:linear-gradient(160deg,#16171e,#0b0c10);transform:translateY(101%);transition:transform .5s var(--ease);z-index:0}
 .rb>*{position:relative;z-index:1}
@@ -456,6 +457,8 @@ a:hover .cv-shine,.feature:hover .cv-shine{transform:translateX(100%)}
 .f-box input{padding-left:44px;border-radius:999px}
 .f-group{margin-top:26px}
 .f-group h5{margin:0 0 10px;font:700 .72rem var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.f-sub{margin:12px 12px 4px;font:700 .66rem var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);opacity:.8}
+.f-sub:first-child{margin-top:4px}
 .f-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:8px 12px;border-radius:10px;border:0;background:transparent;color:var(--ink2);font:600 .88rem var(--sans);cursor:pointer;text-align:left;transition:.15s}
 .f-opt:hover{background:var(--bg2);color:var(--ink)}
 .f-opt.on{background:var(--ink);color:var(--bg)}
